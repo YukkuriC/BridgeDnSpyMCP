@@ -1,0 +1,5 @@
+<Project>
+    <PropertyGroup>
+        <DnSpyPath>your-dnspy-install-path</DnSpyPath>
+    </PropertyGroup>
+</Project>

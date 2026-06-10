@@ -1,0 +1,22 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.pdb
+*.exe
+
+## IDE
+.vs/
+.vscode/
+*.csproj.user
+
+## OS
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+## Local config (contains machine-specific paths)
+path.props

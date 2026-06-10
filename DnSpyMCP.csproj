@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <Import Project="path.props" />
+
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>DnSpyMCP</RootNamespace>
+    <AssemblyName>DnSpyMCP</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+
+  <!-- ===== dnSpy 核心反编译链 ===== -->
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.ComponentModel.Composition" />
+
+    <!-- dnlib - .NET 元数据读写 -->
+    <Reference Include="$(DnSpyPath)\bin\dnlib.dll">
+      <Private>False</Private>
+    </Reference>
+
+    <!-- ILSpy 反编译引擎 (v2.4, dnSpy 内置) -->
+    <Reference Include="$(DnSpyPath)\bin\ICSharpCode.Decompiler.dll">
+      <Private>False</Private>
+    </Reference>
+    <!-- NRefactory (ILSpy 旧引擎依赖) -->
+    <Reference Include="$(DnSpyPath)\bin\ICSharpCode.NRefactory.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\ICSharpCode.NRefactory.CSharp.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\ICSharpCode.NRefactory.VB.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\ICSharpCode.TreeView.dll">
+      <Private>False</Private>
+    </Reference>
+
+    <!-- dnSpy 反编译器接口与实现 -->
+    <Reference Include="$(DnSpyPath)\bin\dnSpy.Contracts.Logic.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\dnSpy.Contracts.DnSpy.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\dnSpy.Decompiler.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\dnSpy.Decompiler.ILSpy.Core.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\dnSpy.Decompiler.ILSpy.x.dll">
+      <Private>False</Private>
+    </Reference>
+
+    <!-- Roslyn (反编译后端 / C# 输出) -->
+    <Reference Include="$(DnSpyPath)\bin\Microsoft.CodeAnalysis.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\Microsoft.CodeAnalysis.CSharp.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\dnSpy.Roslyn.dll">
+      <Private>False</Private>
+    </Reference>
+
+    <!-- MEF v2 (dnSpy 组合容器) -->
+    <Reference Include="$(DnSpyPath)\bin\System.Composition.AttributedModel.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Composition.Convention.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Composition.Hosting.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Composition.Runtime.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Composition.TypedParts.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\Microsoft.VisualStudio.Composition.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\Microsoft.VisualStudio.Validation.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\Microsoft.VisualStudio.Text.Logic.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\Microsoft.VisualStudio.Text.Data.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\Microsoft.VisualStudio.CoreUtility.dll">
+      <Private>False</Private>
+    </Reference>
+
+    <!-- Roslyn / ILSpy 传递依赖 -->
+    <Reference Include="$(DnSpyPath)\bin\Iced.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Collections.Immutable.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Reflection.Metadata.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Memory.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Runtime.CompilerServices.Unsafe.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Buffers.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Numerics.Vectors.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.ValueTuple.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Threading.Tasks.Extensions.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Threading.Tasks.Dataflow.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Text.Encoding.CodePages.dll">
+      <Private>False</Private>
+    </Reference>
+
+    <!-- JSON 序列化 (MCP 协议) -->
+    <Reference Include="$(DnSpyPath)\bin\Newtonsoft.Json.dll">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="$(DnSpyPath)\bin\System.Text.Json.dll">
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="DllDependencyResolver.cs" />
+    <Compile Include="Models\Models.cs" />
+    <Compile Include="Services\AssemblyLoaderService.cs" />
+    <Compile Include="Services\MetadataBrowserService.cs" />
+    <Compile Include="Services\DecompilationService.cs" />
+    <Compile Include="Server\Protocol\McpTypes.cs" />
+    <Compile Include="Server\McpToolRegistry.cs" />
+    <Compile Include="Server\McpServer.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
