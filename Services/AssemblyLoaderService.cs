@@ -6,9 +6,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using dnlib.DotNet;
-using DnSpyMCP.Models;
+using BDSM.Models;
 
-namespace DnSpyMCP.Services
+namespace BDSM.Services
 {
     /// <summary>
     /// 程序集加载与管理服务。

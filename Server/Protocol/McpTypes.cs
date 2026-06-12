@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace DnSpyMCP.Server.Protocol
+namespace BDSM.Server.Protocol
 {
     #region JSON-RPC 基础类型
 
@@ -120,7 +120,7 @@ namespace DnSpyMCP.Server.Protocol
     public class ServerInfoData
     {
         [JsonProperty("name")]
-        public string Name { get; set; } = "DnSpyMCP";
+        public string Name { get; set; } = "BridgeDnSpyMCP";
 
         [JsonProperty("version")]
         public string Version { get; set; } = "1.0.0";

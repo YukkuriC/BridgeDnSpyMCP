@@ -1,4 +1,4 @@
-# DnSpyMCP - 基于 dnSpy 的 MCP 服务器功能规划
+# BridgeDnSpyMCP - 基于 dnSpy 的 MCP 服务器功能规划
 
 > 生成于 GLM-5V-Turbo
 
@@ -113,7 +113,7 @@
 ### 推荐方案: 轻量级 headless 提取（覆盖 ~70% 使用场景）
 
 ```
-DnSpyMCP Server (.NET Framework 4.8 C#)
+BridgeDnSpyMCP Server (.NET Framework 4.8 C#)
   |
   +-- 核心依赖（来自 dnSpy 安装目录）
   |     |-- dnlib              (.NET 元数据读写)
@@ -138,7 +138,7 @@ DnSpyMCP Server (.NET Framework 4.8 C#)
 ### 备选方案: 进程内嵌入（完整功能含调试器）
 
 ```
-DnSpyMCP Server (.NET Framework 4.8, Windows only)
+BridgeDnSpyMCP Server (.NET Framework 4.8, Windows only)
   |
   +-- 引用 dnSpy.Contracts.* 全套
   +-- WPF Application 宿主（隐藏窗口）

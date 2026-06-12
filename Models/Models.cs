@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using dnlib.DotNet;
 
-namespace DnSpyMCP.Models
+namespace BDSM.Models
 {
     /// <summary>
     /// 程序集加载后的摘要信息

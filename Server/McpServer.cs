@@ -7,9 +7,9 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
-using DnSpyMCP.Server.Protocol;
+using BDSM.Server.Protocol;
 
-namespace DnSpyMCP.Server
+namespace BDSM.Server
 {
     /// <summary>
     /// MCP 服务器核心实现。
@@ -181,7 +181,7 @@ namespace DnSpyMCP.Server
                     },
                     ServerInfo = new ServerInfoData
                     {
-                        Name = "DnSpyMCP",
+                        Name = "BridgeDnSpyMCP",
                         Version = "1.0.0"
                     }
                 }
@@ -311,7 +311,7 @@ namespace DnSpyMCP.Server
             if (!DebugLog) return;
             try
             {
-                Console.Error.WriteLine("[DnSpyMCP] " + message);
+                Console.Error.WriteLine("[BDSM] " + message);
             }
             catch { /* stderr 不可用时静默 */ }
         }

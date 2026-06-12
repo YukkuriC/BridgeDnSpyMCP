@@ -1,10 +1,10 @@
 // 生成于 GLM-5V-Turbo
 
 using System;
-using DnSpyMCP.Server;
-using DnSpyMCP.Services;
+using BDSM.Server;
+using BDSM.Services;
 
-namespace DnSpyMCP
+namespace BDSM
 {
     // ---- 入口点 ----
 
@@ -16,12 +16,12 @@ namespace DnSpyMCP
             // 全局未捕获异常保护
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
             {
-                Console.Error.WriteLine("[DnSpyMCP] FATAL UnhandledException: " + e.ExceptionObject);
+                Console.Error.WriteLine("[BDSM] FATAL UnhandledException: " + e.ExceptionObject);
             };
 
             try
             {
-                Console.Error.WriteLine("[DnSpyMCP] Starting server...");
+                Console.Error.WriteLine("[BDSM] Starting server...");
 
                 // 检查并确保所有 dnSpy 依赖 DLL 就位
                 DllDependencyResolver.EnsureDependencies();
@@ -38,14 +38,14 @@ namespace DnSpyMCP
 
                 var server = new McpServer(toolRegistry);
 
-                Console.Error.WriteLine("[DnSpyMCP] Server ready, waiting for stdio messages...");
+                Console.Error.WriteLine("[BDSM] Server ready, waiting for stdio messages...");
                 server.Run();
 
-                Console.Error.WriteLine("[DnSpyMCP] Server shutdown normally.");
+                Console.Error.WriteLine("[BDSM] Server shutdown normally.");
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine("[DnSpyMCP] FATAL: " + ex.ToString());
+                Console.Error.WriteLine("[BDSM] FATAL: " + ex.ToString());
                 Environment.Exit(1);
             }
         }

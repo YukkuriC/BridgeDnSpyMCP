@@ -4,10 +4,10 @@ using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
-using DnSpyMCP.Services;
-using DnSpyMCP.Server.Protocol;
+using BDSM.Services;
+using BDSM.Server.Protocol;
 
-namespace DnSpyMCP.Server
+namespace BDSM.Server
 {
     /// <summary>
     /// MCP 工具注册表。

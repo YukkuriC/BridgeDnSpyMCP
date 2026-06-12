@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace DnSpyMCP
+namespace BDSM
 {
     /// <summary>
     /// 启动时检查 dnSpy 所需 DLL 是否存在于程序目录，
@@ -85,7 +85,7 @@ namespace DnSpyMCP
             if (missing.Count == 0)
                 return;
 
-            Console.Error.WriteLine("[DnSpyMCP] Missing " + missing.Count + " required DLL(s):");
+            Console.Error.WriteLine("[BDSM] Missing " + missing.Count + " required DLL(s):");
             foreach (var dll in missing)
                 Console.Error.WriteLine("  - " + dll);
             Console.Error.WriteLine();
@@ -94,20 +94,20 @@ namespace DnSpyMCP
             var savedPath = TryGetSavedPath(targetDir);
             if (!string.IsNullOrEmpty(savedPath) && Directory.Exists(Path.Combine(savedPath, "bin")))
             {
-                Console.Error.WriteLine("[DnSpyMCP] Using previously saved dnSpy path: " + savedPath);
+                Console.Error.WriteLine("[BDSM] Using previously saved dnSpy path: " + savedPath);
                 if (TryCopyFrom(savedPath, targetDir, missing))
                     return;
-                Console.Error.WriteLine("[DnSpyMCP] Copy from saved path failed, please re-enter.");
+                Console.Error.WriteLine("[BDSM] Copy from saved path failed, please re-enter.");
             }
 
             // 循环提示直到成功或用户放弃
             while (true)
             {
-                Console.Error.Write("[DnSpyMCP] Please enter the dnSpy installation directory (e.g. C:\\Program Files\\dnSpy): ");
+                Console.Error.Write("[BDSM] Please enter the dnSpy installation directory (e.g. C:\\Program Files\\dnSpy): ");
                 var input = Console.ReadLine();
                 if (string.IsNullOrWhiteSpace(input))
                 {
-                    Console.Error.WriteLine("[DnSpyMCP] No input provided. Cannot continue without required DLLs.");
+                    Console.Error.WriteLine("[BDSM] No input provided. Cannot continue without required DLLs.");
                     Environment.Exit(1);
                 }
 
@@ -116,7 +116,7 @@ namespace DnSpyMCP
 
                 if (!Directory.Exists(dnSpyBin))
                 {
-                    Console.Error.WriteLine("[DnSpyMCP] Error: '" + dnSpyBin + "' does not exist.");
+                    Console.Error.WriteLine("[BDSM] Error: '" + dnSpyBin + "' does not exist.");
                     continue;
                 }
 
@@ -209,7 +209,7 @@ namespace DnSpyMCP
                 }
             }
 
-            Console.Error.WriteLine("[DnSpyMCP] Copied " + copied + " DLL(s), " + failed + " failed.");
+            Console.Error.WriteLine("[BDSM] Copied " + copied + " DLL(s), " + failed + " failed.");
             return failed == 0 && copied > 0;
         }
 
@@ -244,11 +244,11 @@ namespace DnSpyMCP
             {
                 var content = "<Project>\r\n    <PropertyGroup>\r\n        <DnSpyPath>" + dnSpyRoot + "</DnSpyPath>\r\n    </PropertyGroup>\r\n</Project>\r\n";
                 File.WriteAllText(propsFile, content);
-                Console.Error.WriteLine("[DnSpyMCP] dnSpy path saved to path.props for future use.");
+                Console.Error.WriteLine("[BDSM] dnSpy path saved to path.props for future use.");
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine("[DnSpyMCP] Warning: could not save path.props - " + ex.Message);
+                Console.Error.WriteLine("[BDSM] Warning: could not save path.props - " + ex.Message);
             }
         }
     }

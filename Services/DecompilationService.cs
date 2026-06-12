@@ -7,9 +7,9 @@ using System.Linq;
 using System.Text;
 using dnlib.DotNet;
 using dnSpy.Contracts.Decompiler;
-using DnSpyMCP.Models;
+using BDSM.Models;
 
-namespace DnSpyMCP.Services
+namespace BDSM.Services
 {
     /// <summary>
     /// 反编译服务。

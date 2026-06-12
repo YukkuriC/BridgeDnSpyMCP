@@ -5,9 +5,9 @@ using System.Collections.Generic;
 using System.Linq;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
-using DnSpyMCP.Models;
+using BDSM.Models;
 
-namespace DnSpyMCP.Services
+namespace BDSM.Services
 {
     /// <summary>
     /// 元数据浏览服务。

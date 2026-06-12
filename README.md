@@ -1,4 +1,4 @@
-# DnSpyMCP
+# BridgeDnSpyMCP
 
 > 生成于 GLM-5V-Turbo
 
@@ -42,7 +42,7 @@
 ## 技术架构
 
 ```
-DnSpyMCP Server (.NET Framework 4.8, C#)
+BridgeDnSpyMCP Server (.NET Framework 4.8, C#)
   |
   +-- 核心依赖（来自 dnSpy 安装目录）
   |     |-- dnlib.dll              -- .NET 元数据读写
@@ -65,8 +65,8 @@ DnSpyMCP Server (.NET Framework 4.8, C#)
 ## 项目结构
 
 ```
-DnSpyMCP/
-  DnSpyMCP.csproj              -- .NET Framework 4.8 项目文件
+BridgeDnSpyMCP/
+  BridgeDnSpyMCP.csproj              -- .NET Framework 4.8 项目文件
   path.props / path.example.props  -- 配置 dnSpy 安装路径引用
   Program.cs                   -- 入口点，组装服务并启动 MCP stdio 循环
   Models/
@@ -105,27 +105,27 @@ DnSpyMCP/
 2. 构建：
 
 ```bash
-dotnet build DnSpyMCP.csproj
+dotnet build BridgeDnSpyMCP.csproj
 ```
 
-3. 编译产物位于 `bin\Debug\DnSpyMCP.exe`。
+3. 编译产物位于 `bin\Debug\BridgeDnSpyMCP.exe`。
 
 ### 作为 MCP 服务器使用
 
-将 `bin\Debug\DnSpyMCP.exe` 配置为 MCP 客户端的 stdio 类型服务器即可。例如在 Trae IDE 中配置：
+将 `bin\Debug\BridgeDnSpyMCP.exe` 配置为 MCP 客户端的 stdio 类型服务器即可。例如在 Trae IDE 中配置：
 
 ```json
 {
   "mcpServers": {
     "dnspy-mcp": {
-      "command": "your-dnspy-install-path\\bin\\DnSpyMCP.exe",
+      "command": "your-dnspy-install-path\\bin\\BridgeDnSpyMCP.exe",
       "args": []
     }
   }
 }
 ```
 
-> 注意：需确保 `DnSpyMCP.exe` 与 dnSpy 的 DLL 文件在同一目录下（或通过 `path.props` 配置的路径可找到所有依赖）。
+> 注意：需确保 `BridgeDnSpyMCP.exe` 与 dnSpy 的 DLL 文件在同一目录下（或通过 `path.props` 配置的路径可找到所有依赖）。
 
 ## 设计决策
 
