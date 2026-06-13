@@ -11,7 +11,9 @@ namespace BDSM.Server
 {
     /// <summary>
     /// MCP 工具注册表。
-    /// 定义所有暴露给 AI 的工具及其参数 schema，并分发调用到对应的服务方法。
+    /// 支持两种模式：
+    /// - 正常模式：暴露全部 17 个分析/反编译工具（需要服务实例）。
+    /// - Setup 模式：仅暴露 configure_dnspy_path 工具（无服务依赖）。
     /// </summary>
     public class McpToolRegistry
     {
@@ -19,6 +21,9 @@ namespace BDSM.Server
         private readonly MetadataBrowserService _metadataBrowser;
         private readonly DecompilationService _decompilation;
         private readonly JsonSerializerSettings _jsonSettings;
+        private readonly bool _isSetupMode;
+
+        // ---- 正常模式构造函数 ----
 
         public McpToolRegistry(
             AssemblyLoaderService assemblyLoader,
@@ -28,6 +33,7 @@ namespace BDSM.Server
             _assemblyLoader = assemblyLoader;
             _metadataBrowser = metadataBrowser;
             _decompilation = decompilation;
+            _isSetupMode = false;
             _jsonSettings = new JsonSerializerSettings
             {
                 Formatting = Formatting.Indented,
@@ -36,9 +42,46 @@ namespace BDSM.Server
             };
         }
 
+        // ---- Setup 模式构造函数 ----
+
+        /// <summary>
+        /// 创建 setup 模式的工具注册表，仅包含 configure_dnspy_path 工具。
+        /// 用于自检失败时让 MCP agent 配置 dnSpy 安装路径。
+        /// </summary>
+        public McpToolRegistry()
+        {
+            _isSetupMode = true;
+            _jsonSettings = new JsonSerializerSettings
+            {
+                Formatting = Formatting.Indented,
+                ContractResolver = new CamelCasePropertyNamesContractResolver(),
+                NullValueHandling = NullValueHandling.Ignore
+            };
+        }
+
+        /// <summary>是否处于 setup 模式（自检未通过）</summary>
+        public bool IsSetupMode => _isSetupMode;
+
         /// <summary>返回所有已注册的工具定义</summary>
         public ListToolsResult ListTools()
         {
+            if (_isSetupMode)
+            {
+                return new ListToolsResult
+                {
+                    Tools = new List<Tool>
+                    {
+                        MakeTool("configure_dnspy_path",
+                            "Configure the dnSpy installation path. Required DLLs are loaded remotely from this path (not copied locally). After configuration, self-check runs automatically. If passed, restart the MCP server to activate full functionality.",
+                            new Dictionary<string, PropertySchema>
+                            {
+                                {"path", new PropertySchema{ Type="string", Description="dnSpy installation directory (e.g. C:\\Program Files\\dnSpy)"}}
+                            },
+                            new List<string> {"path"}),
+                    }
+                };
+            }
+
             return new ListToolsResult
             {
                 Tools = new List<Tool>
@@ -200,25 +243,43 @@ namespace BDSM.Server
             try
             {
                 object result;
-                switch (toolName)
+
+                if (_isSetupMode)
                 {
-                    case "load_assembly":       result = HandleLoadAssembly(arguments); break;
-                    case "list_assemblies":     result = HandleListAssemblies(); break;
-                    case "list_types":          result = HandleListTypes(arguments); break;
-                    case "list_namespaces":     result = HandleListNamespaces(arguments); break;
-                    case "find_type":           result = HandleFindType(arguments); break;
-                    case "get_type_info":       result = HandleGetTypeInfo(arguments); break;
-                    case "list_methods":        result = HandleListMethods(arguments); break;
-                    case "list_fields":         result = HandleListFields(arguments); break;
-                    case "list_properties":     result = HandleListProperties(arguments); break;
-                    case "list_events":         result = HandleListEvents(arguments); break;
-                    case "get_method_info":     result = HandleGetMethodInfo(arguments); break;
-                    case "get_method_il":       result = HandleGetMethodIL(arguments); break;
-                    case "decompile_type":      result = HandleDecompileType(arguments); break;
-                    case "decompile_method":    result = HandleDecompileMethod(arguments); break;
-                    case "decompile_assembly":  result = HandleDecompileAssembly(arguments); break;
-                    case "decompile_to_il":     result = HandleDecompileToIL(arguments); break;
-                    default: throw new NotSupportedException("Unknown tool: " + toolName);
+                    // Setup 模式：仅处理 configure_dnspy_path
+                    switch (toolName)
+                    {
+                        case "configure_dnspy_path":
+                            result = HandleConfigureDnSpyPath(arguments); break;
+                        default:
+                            throw new NotSupportedException(
+                                "Unknown tool: " + toolName +
+                                ". Currently in setup mode. Use 'configure_dnspy_path' to configure dnSpy first.");
+                    }
+                }
+                else
+                {
+                    // 正常模式：分发到各服务方法
+                    switch (toolName)
+                    {
+                        case "load_assembly":       result = HandleLoadAssembly(arguments); break;
+                        case "list_assemblies":     result = _assemblyLoader.ListAssemblies(); break;
+                        case "list_types":          result = HandleListTypes(arguments); break;
+                        case "list_namespaces":     result = HandleListNamespaces(arguments); break;
+                        case "find_type":           result = HandleFindType(arguments); break;
+                        case "get_type_info":       result = HandleGetTypeInfo(arguments); break;
+                        case "list_methods":        result = HandleListMethods(arguments); break;
+                        case "list_fields":         result = HandleListFields(arguments); break;
+                        case "list_properties":     result = HandleListProperties(arguments); break;
+                        case "list_events":         result = HandleListEvents(arguments); break;
+                        case "get_method_info":     result = HandleGetMethodInfo(arguments); break;
+                        case "get_method_il":       result = HandleGetMethodIL(arguments); break;
+                        case "decompile_type":      result = HandleDecompileType(arguments); break;
+                        case "decompile_method":    result = HandleDecompileMethod(arguments); break;
+                        case "decompile_assembly":  result = HandleDecompileAssembly(arguments); break;
+                        case "decompile_to_il":     result = HandleDecompileToIL(arguments); break;
+                        default: throw new NotSupportedException("Unknown tool: " + toolName);
+                    }
                 }
 
                 return new CallToolResult
@@ -239,14 +300,15 @@ namespace BDSM.Server
 
         // ---- 工具处理器 ----
 
+        private object HandleConfigureDnSpyPath(Dictionary<string, object> args)
+        {
+            var path = GetRequiredArg<string>(args, "path");
+            return DnSpyDependencyResolver.ConfigureAndRetry(path);
+        }
+
         private object HandleLoadAssembly(Dictionary<string, object> args)
         {
             return _assemblyLoader.LoadAssembly(GetRequiredArg<string>(args, "path"));
-        }
-
-        private object HandleListAssemblies()
-        {
-            return _assemblyLoader.ListAssemblies();
         }
 
         private object HandleListTypes(Dictionary<string, object> args)

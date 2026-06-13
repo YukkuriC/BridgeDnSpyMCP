@@ -21,6 +21,7 @@ namespace BDSM.Server
         private readonly McpToolRegistry _toolRegistry;
         private readonly JsonSerializerSettings _jsonSettings;
         private bool _initialized;
+        private readonly bool _isSetupMode;
 
         // 调试日志开关 -- 出问题时设为 true，输出到 stderr 可在 Trae 终端中查看
         private const bool DebugLog = true;
@@ -28,6 +29,7 @@ namespace BDSM.Server
         public McpServer(McpToolRegistry toolRegistry)
         {
             _toolRegistry = toolRegistry;
+            _isSetupMode = toolRegistry.IsSetupMode;
             _jsonSettings = new JsonSerializerSettings
             {
                 NullValueHandling = NullValueHandling.Ignore,
@@ -168,6 +170,31 @@ namespace BDSM.Server
         private JsonRpcResponse HandleInitialize(object id)
         {
             _initialized = true;
+
+            var serverInfo = new ServerInfoData
+            {
+                Name = "BridgeDnSpyMCP",
+                Version = "1.0.0"
+            };
+
+            if (_isSetupMode)
+            {
+                Log("Initialization complete (SETUP MODE - dnSpy dependencies not resolved).");
+                return new JsonRpcResponse
+                {
+                    Id = id,
+                    Result = new InitializeResult
+                    {
+                        ProtocolVersion = "2025-11-25",
+                        Capabilities = new ServerCapabilities
+                        {
+                            Tools = new ToolsCapability()
+                        },
+                        ServerInfo = serverInfo
+                    }
+                };
+            }
+
             Log("Initialization complete.");
             return new JsonRpcResponse
             {
@@ -179,11 +206,7 @@ namespace BDSM.Server
                     {
                         Tools = new ToolsCapability()
                     },
-                    ServerInfo = new ServerInfoData
-                    {
-                        Name = "BridgeDnSpyMCP",
-                        Version = "1.0.0"
-                    }
+                    ServerInfo = serverInfo
                 }
             };
         }

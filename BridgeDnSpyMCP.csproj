@@ -41,7 +41,7 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
 
-  <!-- ===== dnSpy 核心反编译链 ===== -->
+  <!-- ===== dnSpy 引用（通配符包含 bin 下全部 DLL + exe 入口） ===== -->
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -51,137 +51,31 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
-    <Reference Include="System.ComponentModel.Composition" />
 
-    <!-- dnlib - .NET 元数据读写 -->
-    <Reference Include="$(DnSpyPath)\bin\dnlib.dll">
-      <Private>False</Private>
-    </Reference>
+    <!-- Publicizer：将 dnSpy 的 internal 类型公开化 -->
+    <PackageReference Include="Krafs.Publicizer" Version="2.3.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
 
-    <!-- ILSpy 反编译引擎 (v2.4, dnSpy 内置) -->
-    <Reference Include="$(DnSpyPath)\bin\ICSharpCode.Decompiler.dll">
-      <Private>False</Private>
-    </Reference>
-    <!-- NRefactory (ILSpy 旧引擎依赖) -->
-    <Reference Include="$(DnSpyPath)\bin\ICSharpCode.NRefactory.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\ICSharpCode.NRefactory.CSharp.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\ICSharpCode.NRefactory.VB.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\ICSharpCode.TreeView.dll">
+    <!-- dnSpy Console 入口 -->
+    <Reference Include="$(DnSpyPath)\dnSpy.Console.exe">
       <Private>False</Private>
     </Reference>
 
-    <!-- dnSpy 反编译器接口与实现 -->
-    <Reference Include="$(DnSpyPath)\bin\dnSpy.Contracts.Logic.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\dnSpy.Contracts.DnSpy.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\dnSpy.Decompiler.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\dnSpy.Decompiler.ILSpy.Core.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\dnSpy.Decompiler.ILSpy.x.dll">
-      <Private>False</Private>
-    </Reference>
-
-    <!-- Roslyn (反编译后端 / C# 输出) -->
-    <Reference Include="$(DnSpyPath)\bin\Microsoft.CodeAnalysis.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\Microsoft.CodeAnalysis.CSharp.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\dnSpy.Roslyn.dll">
-      <Private>False</Private>
-    </Reference>
-
-    <!-- MEF v2 (dnSpy 组合容器) -->
-    <Reference Include="$(DnSpyPath)\bin\System.Composition.AttributedModel.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Composition.Convention.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Composition.Hosting.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Composition.Runtime.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Composition.TypedParts.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\Microsoft.VisualStudio.Composition.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\Microsoft.VisualStudio.Validation.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\Microsoft.VisualStudio.Text.Logic.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\Microsoft.VisualStudio.Text.Data.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\Microsoft.VisualStudio.CoreUtility.dll">
-      <Private>False</Private>
-    </Reference>
-
-    <!-- Roslyn / ILSpy 传递依赖 -->
-    <Reference Include="$(DnSpyPath)\bin\Iced.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Collections.Immutable.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Reflection.Metadata.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Memory.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Runtime.CompilerServices.Unsafe.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Buffers.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Numerics.Vectors.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.ValueTuple.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Threading.Tasks.Extensions.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Threading.Tasks.Dataflow.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Text.Encoding.CodePages.dll">
-      <Private>False</Private>
-    </Reference>
-
-    <!-- JSON 序列化 (MCP 协议) -->
-    <Reference Include="$(DnSpyPath)\bin\Newtonsoft.Json.dll">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="$(DnSpyPath)\bin\System.Text.Json.dll">
+    <!-- dnSpy bin\ 下全部 DLL，编译期全量引用 -->
+    <Reference Include="$(DnSpyPath)\bin\*.dll">
       <Private>False</Private>
     </Reference>
   </ItemGroup>
 
+  <!-- Publicizer：将需要直接构造的 internal 反编译器类公开 -->
   <ItemGroup>
-    <Compile Include="DllDependencyResolver.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="ConfigManager.cs" />
+    <Compile Include="DnSpyDependencyResolver.cs" />
     <Compile Include="Models\Models.cs" />
     <Compile Include="Services\AssemblyLoaderService.cs" />
     <Compile Include="Services\MetadataBrowserService.cs" />

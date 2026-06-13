@@ -2,412 +2,233 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using dnlib.DotNet;
 using dnSpy.Contracts.Decompiler;
-using BDSM.Models;
+using dnSpy.Contracts.Text;
+using ICSharpCode.Decompiler;
+using ICSharpCode.Decompiler.Ast;
+using ICSharpCode.Decompiler.Disassembler;
 
 namespace BDSM.Services
 {
-    /// <summary>
-    /// 反编译服务。
-    /// 基于 dnSpy 的 IDecompiler 接口（通过 MEF 容器获取反编译器实例）提供 C# / IL 反编译输出能力。
-    /// </summary>
-    public class DecompilationService
-    {
-        private readonly AssemblyLoaderService _loader;
-        private readonly Lazy<IDecompiler> _csharpDecompiler;
-        private readonly Lazy<IDecompiler> _ilDecompiler;
-        private bool _initialized;
+	/// <summary>
+	/// 反编译服务。
+	/// 基于 dnSpy / ICSharpCode.Decompiler 引擎，将已加载程序集中的类型/方法反编译为 C# 源码或 ILASM 文本。
+	/// 使用公开 API 路径：AstBuilder（C#）与 ReflectionDisassembler（IL），无需经过 internal 的 CSharpDecompiler 包装类。
+	/// </summary>
+	public class DecompilationService
+	{
+		private readonly AssemblyLoaderService _loader;
 
-        public DecompilationService(AssemblyLoaderService loader)
-        {
-            _loader = loader;
-            // 延迟初始化：首次调用反编译方法时才创建 MEF 容器
-            _csharpDecompiler = new Lazy<IDecompiler>(CreateCSharpDecompiler);
-            _ilDecompiler = new Lazy<IDecompiler>(CreateILDecompiler);
-        }
+		public DecompilationService(AssemblyLoaderService loader)
+		{
+			_loader = loader;
+		}
 
-        // ---- C# 反编译 ----
+		// ===== 公开接口（McpToolRegistry 调用） =====
 
-        /// <summary>
-        /// 将指定类型反编译为 C# 源码文本。
-        /// </summary>
-        public string DecompileType(string assemblyPath, string fullTypeName)
-        {
-            var module = RequireModule(assemblyPath);
-            var type = FindType(module, fullTypeName);
-            if (type == null)
-                throw new NotFoundException("Type '" + fullTypeName + "' not found.");
+		/// <summary> 将指定类型反编译为 C# 源码文本 </summary>
+		public string DecompileType(string assemblyPath, string fullTypeName)
+		{
+			var module = RequireModule(assemblyPath);
+			var type = ResolveType(module, fullTypeName);
+			return DecompileTypeInternal(module, type);
+		}
 
-            return DecompileWith(decompiler =>
-            {
-                var output = CreateOutput();
-                decompiler.Decompile(type, output, CreateContext());
-                return output;
-            });
-        }
+		/// <summary> 将单个方法反编译为 C# 源码文本 </summary>
+		public string DecompileMethod(string assemblyPath, string fullTypeName, string methodName)
+		{
+			var module = RequireModule(assemblyPath);
+			var type = ResolveType(module, fullTypeName);
+			var method = ResolveMethod(type, methodName);
+			return DecompileMethodInternal(module, type, method);
+		}
 
-        /// <summary>
-        /// 将单个方法反编译为 C# 源码文本。
-        /// </summary>
-        public string DecompileMethod(string assemblyPath, string fullTypeName, string methodName)
-        {
-            var module = RequireModule(assemblyPath);
-            var type = FindType(module, fullTypeName);
-            if (type == null)
-                throw new NotFoundException("Type '" + fullTypeName + "' not found.");
+		/// <summary> 反编译整个程序集中所有类型的 C# 源码。返回字典 key=类型全名, value=C#代码 </summary>
+		public Dictionary<string, string> DecompileAssembly(string assemblyPath, string namespaceFilter = null)
+		{
+			var module = RequireModule(assemblyPath);
+			var result = new Dictionary<string, string>();
 
-            var method = type.Methods.FirstOrDefault(m =>
-                m.Name == methodName || m.FullName.EndsWith("." + methodName));
-            if (method == null)
-                throw new NotFoundException("Method '" + methodName + "' not found in type '" + fullTypeName + "'.");
+			IEnumerable<TypeDef> types = module.Types;
+			if (!string.IsNullOrEmpty(namespaceFilter))
+				types = types.Where(t => string.Equals(t.Namespace, namespaceFilter, StringComparison.Ordinal));
 
-            return DecompileWith(decompiler =>
-            {
-                var output = CreateOutput();
-                decompiler.Decompile(method, output, CreateContext());
-                return output;
-            });
-        }
+			foreach (var type in types)
+			{
+				if (!IsCompilerGenerated(type))
+					result[type.FullName] = DecompileTypeInternal(module, type);
+			}
+			return result;
+		}
 
-        /// <summary>
-        /// 反编译整个程序集，返回每个类型的 C# 源码字典。
-        /// </summary>
-        public Dictionary<string, string> DecompileAssembly(string assemblyPath, string namespaceFilter = null)
-        {
-            var module = RequireModule(assemblyPath);
-            var decompiler = _csharpDecompiler.Value;
-            var ctx = CreateContext();
-            var result = new Dictionary<string, string>();
+		/// <summary> 将单个方法输出为 ILASM 格式的中间语言文本 </summary>
+		public string DecompileMethodToIL(string assemblyPath, string fullTypeName, string methodName)
+		{
+			var module = RequireModule(assemblyPath);
+			var type = ResolveType(module, fullTypeName);
+			var method = ResolveMethod(type, methodName);
+			return DecompileToILInternal(method);
+		}
 
-            var types = module.Types
-                .Where(t => !t.IsNested && !IsCompilerGenerated(t))
-                .Where(t => namespaceFilter == null || t.Namespace == namespaceFilter)
-                .ToList();
+		// ===== C# 反编译核心 =====
 
-            foreach (var type in types)
-            {
-                try
-                {
-                    var output = CreateOutput();
-                    decompiler.Decompile(type, output, ctx);
-                    result[type.FullName] = output.GetText();
-                }
-                catch
-                {
-                    result[type.FullName] = "// Unable to decompile " + type.FullName;
-                }
-            }
+		private string DecompileTypeInternal(ModuleDefMD module, TypeDef type)
+		{
+			var output = new PlainTextOutput();
+			var settings = CreateSettings(singleMember: false);
+			var context = new DecompilerContext(settings.SettingsVersion, module, PlainTextColorProvider.Instance);
+			context.Settings = settings;
 
-            return result;
-        }
+			var builder = new AstBuilder(context);
+			builder.AddType(type);
+			builder.RunTransformations();
+			builder.GenerateCode(output);
 
-        // ---- IL 反编译 ----
+			return output.ToString();
+		}
 
-        /// <summary>
-        /// 将指定方法输出为 ILASM 格式的中间语言文本。
-        /// </summary>
-        public string DecompileMethodToIL(string assemblyPath, string fullTypeName, string methodName)
-        {
-            var module = RequireModule(assemblyPath);
-            var type = FindType(module, fullTypeName);
-            if (type == null)
-                throw new NotFoundException("Type '" + fullTypeName + "' not found.");
+		private string DecompileMethodInternal(ModuleDefMD module, TypeDef type, MethodDef method)
+		{
+			var output = new PlainTextOutput();
+			var settings = CreateSettings(singleMember: true);
+			var context = new DecompilerContext(settings.SettingsVersion, module, PlainTextColorProvider.Instance);
+			context.CurrentType = type;
+			context.Settings = settings;
 
-            var method = type.Methods.FirstOrDefault(m =>
-                m.Name == methodName || m.FullName.EndsWith("." + methodName));
-            if (method == null)
-                throw new NotFoundException("Method '" + methodName + "' not found in type '" + fullTypeName + "'.");
+			var builder = new AstBuilder(context);
+			builder.AddMethod(method);
+			builder.RunTransformations();
+			builder.GenerateCode(output);
 
-            // 优先使用 IL 反编译器（输出格式化的 IL），否则回退到手动构建
-            try
-            {
-                var ilDecompiler = _ilDecompiler.Value;
-                var output = CreateOutput();
-                ilDecompiler.Decompile(method, output, CreateContext());
-                return output.GetText();
-            }
-            catch
-            {
-                // 回退：手动从 MethodBody 构建原始 IL 文本
-                return BuildRawIL(method);
-            }
-        }
+			return output.ToString();
+		}
 
-        // ---- 内部：MEF 初始化与反编译器创建 ----
+		// ===== IL 反汇编核心 =====
 
-        private IDecompiler CreateCSharpDecompiler()
-        {
-            EnsureInitialized();
-            // 从 MEF 容器中查找 C# 反编译器（通过 GUID 或名称匹配）
-            foreach (var decompiler in GetAllDecompilers())
-            {
-                // C# 反编译器的 UniqueGuid 通常以特定模式标识
-                var name = decompiler.UniqueNameUI ?? "";
-                if (name.Contains("C#", StringComparison.OrdinalIgnoreCase) ||
-                    name.Contains("c#", StringComparison.OrdinalIgnoreCase) ||
-                    decompiler.FileExtension == ".cs")
-                {
-                    return decompiler;
-                }
-            }
-            // 如果没找到 C# 特定的，返回第一个可用的
-            var all = GetAllDecompilers().ToList();
-            if (all.Count > 0) return all[0];
-            throw new InvalidOperationException("No decompilers available via MEF.");
-        }
+		private string DecompileToILInternal(MethodDef method)
+		{
+			var output = new PlainTextOutput();
+			var options = new DisassemblerOptions(1, CancellationToken.None, method.Module);
+			var disassembler = new ReflectionDisassembler(output, true, options);
+			disassembler.DisassembleMethod(method);
+			return output.ToString();
+		}
 
-        private IDecompiler CreateILDecompiler()
-        {
-            EnsureInitialized();
-            foreach (var decompiler in GetAllDecompilers())
-            {
-                var name = decompiler.UniqueNameUI ?? "";
-                if (name.Contains("IL", StringComparison.OrdinalIgnoreCase) &&
-                    !name.Contains("ILSpy", StringComparison.OrdinalIgnoreCase))
-                {
-                    return decompiler;
-                }
-            }
-            // 回退到 C# 反编译器（至少能工作）
-            return _csharpDecompiler.Value;
-        }
+		// ===== 工厂 / 配置 =====
 
-        // ---- 内部辅助 ----
+		private static DecompilerSettings CreateSettings(bool singleMember)
+		{
+			var s = new DecompilerSettings();
+			if (singleMember)
+			{
+				s.UsingDeclarations = false;
+				s.FullyQualifyAllTypes = true;
+			}
+			return s;
+		}
 
-        private string DecompileWith(Func<IDecompiler, StringBuilderDecompilerOutput> decomposeAction)
-        {
-            return decomposeAction(_csharpDecompiler.Value).GetText();
-        }
+		// ===== 模块/类型/方法解析 =====
 
-        private static StringBuilderDecompilerOutput CreateOutput()
-        {
-            return new StringBuilderDecompilerOutput();
-        }
+		private ModuleDefMD RequireModule(string path)
+		{
+			var mod = _loader.GetModule(path);
+			if (mod == null)
+				throw new InvalidOperationException("Assembly not loaded: " + path);
+			return mod;
+		}
 
-        private static DecompilationContext CreateContext()
-        {
-            return new DecompilationContext { CalculateILSpans = false };
-        }
+		private static TypeDef ResolveType(ModuleDefMD module, string fullName)
+		{
+			var exact = module.Types.FirstOrDefault(t => t.FullName == fullName);
+			if (exact != null) return exact;
+			return module.Types.FirstOrDefault(t =>
+				t.FullName.Equals(fullName, StringComparison.OrdinalIgnoreCase))
+				?? throw new NotFoundException("Type '" + fullName + "' not found in assembly.");
+		}
 
-        private ModuleDefMD RequireModule(string assemblyPath)
-        {
-            var module = _loader.GetModule(assemblyPath);
-            if (module == null)
-                throw new InvalidOperationException(
-                    "Assembly not loaded: " + assemblyPath + ". Call load_assembly first.");
-            return module;
-        }
+		private static MethodDef ResolveMethod(TypeDef type, string name)
+		{
+			return type.Methods.FirstOrDefault(m =>
+				m.Name == name || m.FullName.EndsWith("." + name))
+				?? throw new NotFoundException("Method '" + name + "' not found in type " + type.FullName + ".");
+		}
 
-        private static TypeDef FindType(ModuleDefMD module, string fullTypeName)
-        {
-            var exact = module.Types.FirstOrDefault(t => t.FullName == fullTypeName);
-            if (exact != null) return exact;
-            return module.Types.FirstOrDefault(t =>
-                t.FullName.Equals(fullTypeName, StringComparison.OrdinalIgnoreCase));
-        }
+		private static bool IsCompilerGenerated(TypeDef t)
+		{
+			return t.Name.Contains("<") && t.Name.Contains(">");
+		}
+	}
 
-        private static bool IsCompilerGenerated(TypeDef t)
-        {
-            return (t.Name.Contains("<") && t.Name.Contains(">"));
-        }
+	// =====================================================================
+	// 以下为反编译管线所需的辅助类型，均定义在本文件内以避免额外依赖
+	// =====================================================================
 
-        private static string BuildRawIL(dnlib.DotNet.MethodDef method)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine(".method " + method.FullName);
-            sb.AppendLine("{");
+	/// <summary>
+	/// 最简 IDecompilerOutput 实现：将全部输出收集到 StringBuilder，
+	/// 忽略颜色标注、引用标记、括号匹配等 IDE 特有信息。
+	/// </summary>
+	internal sealed class PlainTextOutput : IDecompilerOutput
+	{
+		private readonly StringBuilder _sb = new StringBuilder();
+		private int _indent;
+		private int _pos;
 
-            if (method.Body != null)
-            {
-                sb.AppendLine("\t.maxstack " + (method.Body.MaxStack > 0 ? method.Body.MaxStack : 8));
+		public int Length => _sb.Length;
+		public int NextPosition => _pos;
+		public bool UsesCustomData => false;
 
-                if (method.Body.Variables.Count > 0)
-                {
-                    sb.AppendLine("\t.locals init (");
-                    for (int i = 0; i < method.Body.Variables.Count; i++)
-                    {
-                        var v = method.Body.Variables[i];
-                        var comma = i < method.Body.Variables.Count - 1 ? "," : "";
-                        sb.AppendLine("\t\t[" + i + "] " + v.Type + comma);
-                    }
-                    sb.AppendLine("\t)");
-                }
+		public void Write(string text, object color) => Append(text);
+		public void Write(string text, object reference, DecompilerReferenceFlags flags, object color) => Append(text);
+		public void Write(string text, int index, int length, object color) => Append(text, index, length);
+		public void Write(string text, int index, int length, object reference, DecompilerReferenceFlags flags, object color) => Append(text, index, length);
 
-                sb.AppendLine();
-                foreach (var instr in method.Body.Instructions)
-                {
-                    var operandStr = FormatILOperand(instr.Operand);
-                    var line = operandStr != null
-                        ? "\t" + instr.OpCode.Name + " " + operandStr
-                        : "\t" + instr.OpCode.Name;
-                    sb.AppendLine("IL_" + instr.Offset.ToString("X4") + ": " + line);
-                }
-            }
-            else
-            {
-                sb.AppendLine("\t// Abstract or extern method - no body");
-            }
+		public void WriteLine()
+		{
+			_sb.AppendLine();
+			_pos = _sb.Length;
+		}
 
-            sb.AppendLine("}");
-            return sb.ToString();
-        }
+		public void IncreaseIndent() { _indent++; }
+		public void DecreaseIndent() { _indent = Math.Max(0, _indent - 1); }
 
-        private static string FormatILOperand(object operand)
-        {
-            if (operand == null) return null;
+		public void AddBracePair(TextSpan left, TextSpan right, CodeBracesRangeFlags flags) { }
+		public void AddSpanReference(object reference, int start, int end, string tag = null) { }
+		public void AddLineSeparator(int position) { }
+		public void AddDebugInfo(MethodDebugInfo info) { }
+		public void WriteXmlDoc(string xmlDoc) { Append(xmlDoc); }
+		public void AddCustomData<TData>(string key, TData data) { }
 
-            var im = operand as dnlib.DotNet.IMethod;
-            if (im != null) return im.FullName;
+		public override string ToString() => _sb.ToString();
 
-            var f = operand as dnlib.DotNet.IField;
-            if (f != null) return f.FullName;
+		private void Append(string text)
+		{
+			if (text == null) return;
+			_sb.Append(text);
+			_pos += text.Length;
+		}
 
-            var mr = operand as dnlib.DotNet.IMemberRef;
-            if (mr != null) return mr.FullName;
+		private void Append(string text, int index, int length)
+		{
+			if (text == null) return;
+			var sub = text.Substring(index, length);
+			_sb.Append(sub);
+			_pos += sub.Length;
+		}
+	}
 
-            var tr = operand as dnlib.DotNet.ITypeDefOrRef;
-            if (tr != null) return tr.ToString();
+	/// <summary>
+	/// 极简 MetadataTextColorProvider 实现。
+	/// 对所有元数据对象统一返回 BoxedTextColor.Text（不做语法着色），
+	/// 避免 dnSpy 内部的 CSharpMetadataTextColorProvider（可能为 internal）带来的访问问题。
+	/// </summary>
+	internal sealed class PlainTextColorProvider : MetadataTextColorProvider
+	{
+		public static readonly PlainTextColorProvider Instance = new PlainTextColorProvider();
 
-            var s = operand as string;
-            if (s != null) return "\"" + s + "\"";
-
-            if (operand is sbyte || operand is byte || operand is short || operand is ushort ||
-                operand is int || operand is uint || operand is long || operand is ulong)
-                return operand.ToString();
-
-            if (operand is float) return ((float)operand).ToString("G9");
-            if (operand is double) return ((double)operand).ToString("G17");
-
-            var instr = operand as dnlib.DotNet.Emit.Instruction;
-            if (instr != null) return "IL_" + instr.Offset.ToString("X4");
-
-            return operand.ToString();
-        }
-
-        // ---- MEF 静态容器（进程级单例）----
-
-        private static readonly object _initLock = new object();
-        private static List<IDecompiler> _allDecompilers;
-
-        private void EnsureInitialized()
-        {
-            if (_initialized) return;
-            lock (_initLock)
-            {
-                if (_initialized) return;
-                InitializeMEF();
-                _initialized = true;
-            }
-        }
-
-        private static void InitializeMEF()
-        {
-            // 通过反射加载 dnSpy 的反编译器 DLL 并使用 MEF 获取 IDecompiler 导出
-            var dnSpyBinDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory);
-
-            // 尝试从已知的 dnSpy 安装路径或程序集位置发现目录
-            var searchPaths = GetSearchPaths(dnSpyBinDir);
-
-            var catalog = new System.ComponentModel.Composition.Hosting.AggregateCatalog();
-            foreach (var dir in searchPaths)
-            {
-                if (Directory.Exists(dir))
-                {
-                    catalog.Catalogs.Add(
-                        new System.ComponentModel.Composition.Hosting.DirectoryCatalog(dir));
-                }
-            }
-
-            var container = new System.ComponentModel.Composition.Hosting.CompositionContainer(catalog);
-
-            try
-            {
-                // IDecompilerCreator 是工厂接口，每个导出者可创建一个或多个 IDecompiler
-                var creators = container.GetExportedValues<IDecompilerCreator>();
-                var list = new List<IDecompiler>();
-                foreach (var creator in creators)
-                {
-                    try
-                    {
-                        foreach (var dec in creator.Create())
-                        {
-                            list.Add(dec);
-                        }
-                    }
-                    catch
-                    {
-                        // 某些创建者可能因缺少运行时依赖而失败，跳过
-                    }
-                }
-                _allDecompilers = list;
-            }
-            finally
-            {
-                container.Dispose();
-            }
-
-            if (_allDecompilers == null || _allDecompilers.Count == 0)
-            {
-                throw new InvalidOperationException(
-                    "Failed to load any decompilers via MEF. " +
-                    "Ensure dnSpy DLLs are accessible from: " +
-                    string.Join("; ", searchPaths));
-            }
-        }
-
-        private static IEnumerable<IDecompiler> GetAllDecompilers()
-        {
-            return _allDecompilers ?? Enumerable.Empty<IDecompiler>();
-        }
-
-        /// <summary>
-        /// 确定搜索 dnSpy DLL 的目录列表。
-        /// 优先级：1. path.props 配置的 DnSpyPath\bin 2. 当前程序目录 3. 上级目录\bin
-        /// </summary>
-        private static List<string> GetSearchPaths(string baseDir)
-        {
-            var paths = new List<string>();
-
-            // 1. 尝试从 path.props 中读取 DnSpyPath（通过 AppDomain 或环境变量）
-            var dnSpyPathFromProps = TryGetDnSpyPathFromConfig();
-            if (!string.IsNullOrEmpty(dnSpyPathFromProps))
-            {
-                paths.Add(Path.Combine(dnSpyPathFromProps, "bin"));
-            }
-
-            // 2. 当前程序所在目录
-            paths.Add(baseDir);
-
-            // 3. 常见相对路径
-            paths.Add(Path.Combine(baseDir, "bin"));
-            paths.Add(Path.GetDirectoryName(baseDir) ?? baseDir);
-
-            // 4. 尝试常见安装位置
-            var envDnSpy = Environment.GetEnvironmentVariable("DNSPY_PATH");
-            if (!string.IsNullOrEmpty(envDnSpy))
-                paths.Add(Path.Combine(envDnSpy, "bin"));
-
-            return paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        }
-
-        private static string TryGetDnSpyPathFromConfig()
-        {
-            // 尝试读取同目录下的 path.props
-            var propsFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "path.props");
-            if (File.Exists(propsFile))
-            {
-                var content = File.ReadAllText(propsFile);
-                // 简单 XML 解析提取 DnSpyPath 值
-                var match = System.Text.RegularExpressions.Regex.Match(
-                    content, "<DnSpyPath>([^<]+)</DnSpyPath>");
-                if (match.Success)
-                    return match.Groups[1].Value.Trim();
-            }
-            return null;
-        }
-    }
+		public override object GetColor(object obj) => BoxedTextColor.Text;
+	}
 }
