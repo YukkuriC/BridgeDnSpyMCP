@@ -137,4 +137,27 @@ namespace BDSM.Models
         public string Name { get; set; }
         public int TypeCount { get; set; }
     }
+
+    /// <summary>
+    /// 成员引用位置信息（find_references 返回值）
+    /// </summary>
+    public class ReferenceInfo
+    {
+        public string ContainingType { get; set; }
+        public string ContainingMethod { get; set; }
+        public int Offset { get; set; }
+        public string OpCode { get; set; }
+        public string Operand { get; set; }
+    }
+
+    /// <summary>
+    /// 字符串引用位置信息（find_all_string_refs 返回值）
+    /// </summary>
+    public class StringRefInfo
+    {
+        public string ContainingType { get; set; }
+        public string ContainingMethod { get; set; }
+        public int Offset { get; set; }
+        public string StringValue { get; set; }
+    }
 }

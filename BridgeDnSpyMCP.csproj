@@ -69,15 +69,18 @@
     </Reference>
   </ItemGroup>
 
-  <!-- Publicizer：将需要直接构造的 internal 反编译器类公开 -->
+  <!-- Publicizer：公开 dnSpy internal 类型供直接调用 -->
   <ItemGroup>
+    <Publicize Include="dnSpy.Analyzer.x" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="ConfigManager.cs" />
     <Compile Include="DnSpyDependencyResolver.cs" />
     <Compile Include="Models\Models.cs" />
+    <Compile Include="Services\DnSpyUtils.cs" />
     <Compile Include="Services\AssemblyLoaderService.cs" />
+    <Compile Include="Services\ReferenceFinderService.cs" />
     <Compile Include="Services\MetadataBrowserService.cs" />
     <Compile Include="Services\DecompilationService.cs" />
     <Compile Include="Server\Protocol\McpTypes.cs" />

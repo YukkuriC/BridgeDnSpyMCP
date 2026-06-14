@@ -14,10 +14,7 @@ namespace BDSM
         private static void Main(string[] args)
         {
             // 全局未捕获异常保护
-            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
-            {
-                Console.Error.WriteLine("[BDSM] FATAL UnhandledException: " + e.ExceptionObject);
-            };
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => { Console.Error.WriteLine("[BDSM] FATAL UnhandledException: " + e.ExceptionObject); };
 
             try
             {
@@ -37,16 +34,21 @@ namespace BDSM
                     Console.Error.WriteLine("[BDSM] Normal mode: full functionality available.");
 
                     var assemblyLoader = new AssemblyLoaderService();
-                    var metadataBrowser = new MetadataBrowserService(assemblyLoader);
+                    var refFinder = new ReferenceFinderService(assemblyLoader);
+                    var metadataBrowser = new MetadataBrowserService(assemblyLoader, refFinder);
                     var decompilation = new DecompilationService(assemblyLoader);
+
+                    // 先创建 server 以获取 ShutdownAction 回调引用
+                    server = new();
 
                     var toolRegistry = new McpToolRegistry(
                         assemblyLoader,
                         metadataBrowser,
-                        decompilation
+                        decompilation,
+                        server.ShutdownAction
                     );
 
-                    server = new McpServer(toolRegistry);
+                    server.toolRegistry = toolRegistry;
                 }
                 else
                 {
@@ -54,8 +56,8 @@ namespace BDSM
                     Console.Error.WriteLine("[BDSM] Setup mode: dnSpy dependencies not resolved.");
                     Console.Error.WriteLine("[BDSM] Use the 'configure_dnspy_path' tool to set the correct path.");
 
-                    var toolRegistry = new McpToolRegistry(); // setup mode
-                    server = new McpServer(toolRegistry);
+                    // setup mode
+                    server = new McpServer { toolRegistry = new McpToolRegistry() };
                 }
 
                 Console.Error.WriteLine("[BDSM] Server ready, waiting for stdio messages...");

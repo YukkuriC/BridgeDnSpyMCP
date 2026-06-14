@@ -18,24 +18,20 @@ namespace BDSM.Server
     /// </summary>
     public class McpServer
     {
-        private readonly McpToolRegistry _toolRegistry;
-        private readonly JsonSerializerSettings _jsonSettings;
+        public McpToolRegistry toolRegistry;
+        private readonly JsonSerializerSettings _jsonSettings = new JsonSerializerSettings
+        {
+            NullValueHandling = NullValueHandling.Ignore,
+            ContractResolver = new CamelCasePropertyNamesContractResolver()
+        };
         private bool _initialized;
-        private readonly bool _isSetupMode;
+        private volatile bool _shutdownRequested;
 
         // 调试日志开关 -- 出问题时设为 true，输出到 stderr 可在 Trae 终端中查看
         private const bool DebugLog = true;
 
-        public McpServer(McpToolRegistry toolRegistry)
-        {
-            _toolRegistry = toolRegistry;
-            _isSetupMode = toolRegistry.IsSetupMode;
-            _jsonSettings = new JsonSerializerSettings
-            {
-                NullValueHandling = NullValueHandling.Ignore,
-                ContractResolver = new CamelCasePropertyNamesContractResolver()
-            };
-        }
+        /// <summary>外部可获取的 shutdown 回调，传入 McpToolRegistry 以响应 shutdown_server 工具调用</summary>
+        public Action ShutdownAction => () => _shutdownRequested = true;
 
         /// <summary>
         /// 启动 stdio 循环，逐行读取 JSON 请求并写入响应直到流结束。
@@ -75,6 +71,13 @@ namespace BDSM.Server
                                 break; // stdout 被关闭，退出循环
                             }
                             Log("Sent OK, waiting for next message...");
+                        }
+
+                        // 检查 shutdown 信号（在响应已发送后检查，确保客户端收到确认）
+                        if (_shutdownRequested)
+                        {
+                            Log("Shutdown requested, exiting read loop.");
+                            break;
                         }
                     }
                     catch (Exception ex)
@@ -177,7 +180,7 @@ namespace BDSM.Server
                 Version = "1.0.0"
             };
 
-            if (_isSetupMode)
+            if (toolRegistry.IsSetupMode)
             {
                 Log("Initialization complete (SETUP MODE - dnSpy dependencies not resolved).");
                 return new JsonRpcResponse
@@ -213,7 +216,7 @@ namespace BDSM.Server
 
         private JsonRpcResponse HandleToolsList(object id)
         {
-            var tools = _toolRegistry.ListTools();
+            var tools = toolRegistry.ListTools();
             return new JsonRpcResponse { Id = id, Result = tools };
         }
 
@@ -233,7 +236,7 @@ namespace BDSM.Server
                 var argsDict = ExtractArguments(paramsToken?["arguments"]);
                 var toolName = ExtractToolName(paramsToken);
                 Log("Tool call: " + toolName);
-                var result = _toolRegistry.CallTool(toolName, argsDict);
+                var result = toolRegistry.CallTool(toolName, argsDict);
                 return new JsonRpcResponse { Id = id, Result = result };
             }
             catch (Exception ex)

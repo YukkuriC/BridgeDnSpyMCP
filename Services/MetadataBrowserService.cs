@@ -16,10 +16,12 @@ namespace BDSM.Services
     public class MetadataBrowserService
     {
         private readonly AssemblyLoaderService _loader;
+        private readonly ReferenceFinderService _refFinder;
 
-        public MetadataBrowserService(AssemblyLoaderService loader)
+        public MetadataBrowserService(AssemblyLoaderService loader, ReferenceFinderService refFinder)
         {
             _loader = loader;
+            _refFinder = refFinder;
         }
 
         // ---- 类型查询 ----
@@ -137,16 +139,26 @@ namespace BDSM.Services
             {
                 Offset = (int)instr.Offset,
                 OpCode = instr.OpCode.Name,
-                Operand = FormatOperand(instr.Operand)
+                Operand = DnSpyUtils.FormatOperand(instr.Operand)
             }).ToList();
         }
 
-        // ---- 内部辅助 ----
+        // ---- 引用查找（委托给 ReferenceFinderService） ----
 
-        private static bool IsCompilerGenerated(TypeDef t)
-        {
-            return (t.Name.Contains("<") && t.Name.Contains(">"));
-        }
+        /// <summary>
+        /// 查找某个成员在所有已加载程序集中的引用位置。
+        /// 自动识别成员类型，按可访问性确定搜索范围，使用 SigComparer 精确匹配。
+        /// </summary>
+        public List<ReferenceInfo> FindReferences(string assemblyPath, string fullTypeName, string memberName) =>
+            _refFinder.FindReferences(assemblyPath, fullTypeName, memberName);
+
+        /// <summary>
+        /// 查找所有已加载程序集中包含指定字符串的 ldstr 指令位置。
+        /// </summary>
+        public List<StringRefInfo> FindAllStringRefs(string searchString) =>
+            _refFinder.FindAllStringRefs(searchString);
+
+        private static bool IsCompilerGenerated(TypeDef t) => DnSpyUtils.IsCompilerGenerated(t);
 
         private static bool IsPropertyAccessor(MethodDef m)
         {
@@ -301,35 +313,6 @@ namespace BDSM.Services
             if (mask == FieldAttributes.FamORAssem) return "protected internal";
             if (mask == FieldAttributes.FamANDAssem) return "private protected";
             return "unknown";
-        }
-
-        private static string FormatOperand(object operand)
-        {
-            if (operand == null) return null;
-
-            var im = operand as IMethod;
-            if (im != null) return im.FullName;
-
-            var f = operand as IField;
-            if (f != null) return f.FullName;
-
-            var mr = operand as IMemberRef;
-            if (mr != null) return mr.FullName;
-
-            var tr = operand as ITypeDefOrRef;
-            if (tr != null) return tr.ToString();
-
-            var s = operand as string;
-            if (s != null) return "\"" + s + "\"";
-
-            if (operand is sbyte || operand is byte || operand is short || operand is ushort ||
-                operand is int || operand is uint || operand is long || operand is ulong)
-                return operand.ToString();
-
-            if (operand is float) return ((float)operand).ToString("G9");
-            if (operand is double) return ((double)operand).ToString("G17");
-
-            return operand.ToString();
         }
 
         private ModuleDefMD RequireModule(string assemblyPath)

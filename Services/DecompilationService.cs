@@ -157,10 +157,7 @@ namespace BDSM.Services
 				?? throw new NotFoundException("Method '" + name + "' not found in type " + type.FullName + ".");
 		}
 
-		private static bool IsCompilerGenerated(TypeDef t)
-		{
-			return t.Name.Contains("<") && t.Name.Contains(">");
-		}
+		private static bool IsCompilerGenerated(TypeDef t) => DnSpyUtils.IsCompilerGenerated(t);
 	}
 
 	// =====================================================================

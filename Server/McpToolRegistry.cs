@@ -22,18 +22,21 @@ namespace BDSM.Server
         private readonly DecompilationService _decompilation;
         private readonly JsonSerializerSettings _jsonSettings;
         private readonly bool _isSetupMode;
+        private readonly Action _onShutdown;
 
         // ---- 正常模式构造函数 ----
 
         public McpToolRegistry(
             AssemblyLoaderService assemblyLoader,
             MetadataBrowserService metadataBrowser,
-            DecompilationService decompilation)
+            DecompilationService decompilation,
+            Action onShutdown = null)
         {
             _assemblyLoader = assemblyLoader;
             _metadataBrowser = metadataBrowser;
             _decompilation = decompilation;
             _isSetupMode = false;
+            _onShutdown = onShutdown;
             _jsonSettings = new JsonSerializerSettings
             {
                 Formatting = Formatting.Indented,
@@ -112,6 +115,26 @@ namespace BDSM.Server
                         "清空所有已加载的程序集，释放全部资源。",
                         new Dictionary<string, PropertySchema>(),
                         null),
+
+                    // ===== 引用查找 =====
+                    MakeTool("find_references",
+                        "查找某个成员（方法/字段/属性/事件）在程序集中的所有引用位置。返回包含类型、方法、IL偏移量等信息的列表。",
+                        new Dictionary<string, PropertySchema>
+                        {
+                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                            {"full_type_name", new PropertySchema{ Type="string", Description="成员所属类型的全限定名"}},
+                            {"member_name", new PropertySchema{ Type="string", Description="要查找的成员名称（方法名、字段名、属性名或事件名）"}}
+                        },
+                        new List<string> {"assembly_path", "full_type_name", "member_name"}),
+
+                    MakeTool("find_all_string_refs",
+                        "查找程序集中包含指定字符串的 ldstr 指令位置。用于定位硬编码字符串的使用处。",
+                        new Dictionary<string, PropertySchema>
+                        {
+                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                            {"search_string", new PropertySchema{ Type="string", Description="要搜索的字符串（支持子串匹配）"}}
+                        },
+                        new List<string> {"assembly_path", "search_string"}),
 
                     // ===== 类型查询 =====
                     MakeTool("list_types",
@@ -244,6 +267,12 @@ namespace BDSM.Server
                             {"method_name", new PropertySchema{ Type="string", Description="要输出的方法名"}}
                         },
                         new List<string> {"assembly_path", "full_type_name", "method_name"}),
+
+                    // ===== 服务器管理 =====
+                    MakeTool("close_self",
+                        "Gracefully shut down the MCP server process. The server will send a response confirming shutdown, then exit. This is a transport-level termination since MCP has no standard shutdown RPC method.",
+                        new Dictionary<string, PropertySchema>(),
+                        null),
                 }
             };
         }
@@ -279,6 +308,8 @@ namespace BDSM.Server
                         case "list_assemblies":        result = _assemblyLoader.ListAssemblies(); break;
                         case "unload_assembly":        result = HandleUnloadAssembly(arguments); break;
                         case "clear_all_assemblies":   result = HandleClearAllAssemblies(); break;
+                        case "find_references":       result = HandleFindReferences(arguments); break;
+                        case "find_all_string_refs":  result = HandleFindAllStringRefs(arguments); break;
                         case "list_types":          result = HandleListTypes(arguments); break;
                         case "list_namespaces":     result = HandleListNamespaces(arguments); break;
                         case "find_type":           result = HandleFindType(arguments); break;
@@ -293,6 +324,7 @@ namespace BDSM.Server
                         case "decompile_method":    result = HandleDecompileMethod(arguments); break;
                         case "decompile_assembly":  result = HandleDecompileAssembly(arguments); break;
                         case "decompile_to_il":     result = HandleDecompileToIL(arguments); break;
+                        case "mcp_dnspy-mcp_shutdown_server": result = HandleShutdownServer(); break;
                         default: throw new NotSupportedException("Unknown tool: " + toolName);
                     }
                 }
@@ -337,6 +369,20 @@ namespace BDSM.Server
         {
             var count = _assemblyLoader.ClearAllAssemblies();
             return new { cleared = count, message = string.Format("{0} assembly(ies) cleared.", count) };
+        }
+
+        private object HandleFindReferences(Dictionary<string, object> args)
+        {
+            return _metadataBrowser.FindReferences(
+                GetRequiredArg<string>(args, "assembly_path"),
+                GetRequiredArg<string>(args, "full_type_name"),
+                GetRequiredArg<string>(args, "member_name"));
+        }
+
+        private object HandleFindAllStringRefs(Dictionary<string, object> args)
+        {
+            return _metadataBrowser.FindAllStringRefs(
+                GetRequiredArg<string>(args, "search_string"));
         }
 
         private object HandleListTypes(Dictionary<string, object> args)
@@ -443,6 +489,14 @@ namespace BDSM.Server
                 GetRequiredArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"),
                 GetRequiredArg<string>(args, "method_name"));
+        }
+
+        private object HandleShutdownServer()
+        {
+            var result = new { status = "shutting_down", message = "Server will exit after this response." };
+            // 延迟触发 shutdown，确保响应先发送给客户端
+            _onShutdown?.Invoke();
+            return result;
         }
 
         // ---- 辅助 ----
