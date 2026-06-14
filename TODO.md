@@ -8,22 +8,11 @@
 
 **重要前提**: dnSpy 本身是 GUI 应用，无原生 headless/CLI 模式。MCP 服务器需引用 dnSpy 的底层库（dnlib、ICSharpCode.Decompiler、Roslyn 等）构建新的宿主程序。
 
-> Phase 1（反编译与分析，16 个工具）已于 2025-06-11 全部实现，详见 [README.md](README.md)。以下为剩余待实现项。
-
 ---
 
-## 一、引用查找
+## 程序集编辑类工具
 
-| 工具名 | 功能 | 实现思路 | 优先级 |
-|--------|------|---------|--------|
-| `find_references` | 查找某个成员在程序集中的所有引用位置 | 遍历 IL Instructions + 元数据引用表 | P1 |
-| `find_all_string_refs` | 查找包含指定字符串的 ldstr 指令位置 | 搜索 IL Instructions 中的 `ldstr` | P2 |
-
----
-
-## 二、程序集编辑类工具
-
-### 2.1 元数据编辑
+### 1. 元数据编辑
 
 | 工具名 | 功能 | 对应 dnSpy API | 优先级 |
 |--------|------|---------------|--------|
@@ -36,7 +25,7 @@
 | `add_custom_attribute` | 为成员添加自定义特性 | `CustomAttributes.Add()` | P2 |
 | `remove_custom_attribute` | 删除成员的自定义特性 | `CustomAttributes.Remove()` | P2 |
 
-### 2.2 结构编辑
+### 2. 结构编辑
 
 | 工具名 | 功能 | 对应 dnSpy API | 优先级 |
 |--------|------|---------------|--------|
@@ -46,7 +35,7 @@
 | `remove_member` | 删除类型中的成员 | `.Remove()` | P1 |
 | `add_assembly_reference` | 添加程序集引用 | `AssemblyRefUser` | P2 |
 
-### 2.3 IL 编辑（高级）
+### 3. IL 编辑（高级）
 
 | 工具名 | 功能 | 对应 dnSpy API | 优先级 |
 |--------|------|---------------|--------|
@@ -54,7 +43,7 @@
 | `inject_method_call` | 在方法开头/结尾注入方法调用 | 插入 IL Instruction | P2 |
 | `nop_method_body` | 清空方法体（设为 throw 或 nop） | 替换 Instructions | P2 |
 
-### 2.4 保存与导出
+### 4. 保存与导出
 
 | 工具名 | 功能 | 对应 dnSpy API | 优先级 |
 |--------|------|---------------|--------|
@@ -66,9 +55,7 @@
 
 ---
 
-## 三、调试器类工具（第三优先级 -- 复杂度高）
-
-> 调试器功能依赖完整的 CLR 调试管线（ClrMD/DAC）、WPF UI 线程模型，MCP 化难度显著高于反编译/编辑功能。建议作为后期目标。
+## 调试器类工具
 
 | 工具名 | 功能 | 对应 dnSpy API | 优先级 |
 |--------|------|---------------|--------|
@@ -94,7 +81,7 @@
 
 ---
 
-## 四、高级分析类工具
+## 高级分析类工具
 
 | 工具名 | 功能 | 实现思路 | 优先级 |
 |--------|------|---------|--------|
@@ -108,28 +95,33 @@
 
 ---
 
-## 五、技术架构方案
+## 技术架构方案
 
 ### 推荐方案: 轻量级 headless 提取（覆盖 ~70% 使用场景）
 
 ```
 BridgeDnSpyMCP Server (.NET Framework 4.8 C#)
   |
-  +-- 核心依赖（来自 dnSpy 安装目录）
+  +-- 核心依赖（运行时从 dnSpy 安装目录远程加载）
   |     |-- dnlib              (.NET 元数据读写)
+  |     |-- dnSpy.Analyzer.x   (引用分析引擎，Publicizer 公开)
   |     |-- ILSpy.*            (反编译引擎)
-  |     |-- System.Composition (MEF v2 容器)
   |     |-- Newtonsoft.Json    (JSON 序列化)
   |
+  +-- 入口与基础设施
+  |     |-- ConfigManager           (bdsm.ini 配置管理)
+  |     |-- DnSpyDependencyResolver (AssemblyResolve + 自检 + Setup 模式)
+  |
   +-- 能力层
-  |     |-- AssemblyLoader      程序集加载与管理
-  |     |-- DecompilationService   反编译服务（C#/IL）
-  |     |-- MetadataBrowser      元数据浏览
-  |     |-- AssemblyEditor       程序集编辑（待实现）
-  |     |-- ReferenceFinder      引用查找（待实现）
+  |     |-- AssemblyLoader      程序集加载与管理 (dnlib)
+  |     |-- ReferenceFinder     引用查找 (ScopedWhereUsedAnalyzer) -- 已实现
+  |     |-- MetadataBrowser     元数据浏览与查询
+  |     |-- DecompilationService 反编译服务（C#/IL，AstBuilder/ReflectionDisassembler）
+  |     |-- DnSpyUtils          公共工具方法
+  |     |-- AssemblyEditor       程集编辑（待实现）
   |
   +-- MCP 协议层
-  |     |-- Tool 定义与注册
+  |     |-- Tool 定义与注册（正常/Setup 双模式）
   |     |-- stdio NDJSON 传输
 ```
 
@@ -152,7 +144,7 @@ BridgeDnSpyMCP Server (.NET Framework 4.8, Windows only)
 
 ---
 
-## 六、关键技术依赖
+## 关键技术依赖
 
 | 库 | 版本 | 用途 | 许可证 |
 |----|------|------|--------|
@@ -164,7 +156,7 @@ BridgeDnSpyMCP Server (.NET Framework 4.8, Windows only)
 
 ---
 
-## 七、实施路线图建议
+## 实施路线图建议
 
 ### Phase 1 - MVP（反编译 + 浏览） -- 已完成，详见 [README.md](README.md)
 
@@ -173,7 +165,6 @@ BridgeDnSpyMCP Server (.NET Framework 4.8, Windows only)
 - [ ] 实现 `add_*` / `remove_member` -- 结构增删
 - [ ] 实现 `edit_method_il` -- IL 编辑
 - [ ] 实现 `save_assembly` -- 修改后保存
-- [ ] 实现 `find_references` -- 引用查找
 
 ### Phase 3 - 高级分析与扩展
 - [ ] 实现 `read_resource` / `replace_resource` -- 资源操作
@@ -190,7 +181,7 @@ BridgeDnSpyMCP Server (.NET Framework 4.8, Windows only)
 
 ---
 
-## 八、参考资源
+## 参考资源
 
 - **dnSpy 仓库**: https://github.com/dnSpyEx/dnSpy
 - **dnlib (底层元数据库)**: https://github.com/0xd4d/dnlib
