@@ -44,6 +44,16 @@ namespace BDSM.Services
         }
 
         /// <summary>
+        /// 清空所有已加载的程序集，释放资源。
+        /// </summary>
+        public int ClearAllAssemblies()
+        {
+            var count = _assemblies.Count;
+            _assemblies.Clear();
+            return count;
+        }
+
+        /// <summary>
         /// 获取已加载的所有程序集信息。
         /// </summary>
         public IReadOnlyList<AssemblyInfo> ListAssemblies()

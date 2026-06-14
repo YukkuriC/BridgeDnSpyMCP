@@ -100,6 +100,19 @@ namespace BDSM.Server
                         new Dictionary<string, PropertySchema>(),
                         null),
 
+                    MakeTool("unload_assembly",
+                        "移除单个已加载的程序集，释放资源。",
+                        new Dictionary<string, PropertySchema>
+                        {
+                            {"path", new PropertySchema{ Type="string", Description="要移除的程序集文件路径"}}
+                        },
+                        new List<string> {"path"}),
+
+                    MakeTool("clear_all_assemblies",
+                        "清空所有已加载的程序集，释放全部资源。",
+                        new Dictionary<string, PropertySchema>(),
+                        null),
+
                     // ===== 类型查询 =====
                     MakeTool("list_types",
                         "列出已加载程序集中的所有顶层类型，支持按命名空间过滤。",
@@ -262,8 +275,10 @@ namespace BDSM.Server
                     // 正常模式：分发到各服务方法
                     switch (toolName)
                     {
-                        case "load_assembly":       result = HandleLoadAssembly(arguments); break;
-                        case "list_assemblies":     result = _assemblyLoader.ListAssemblies(); break;
+                        case "load_assembly":          result = HandleLoadAssembly(arguments); break;
+                        case "list_assemblies":        result = _assemblyLoader.ListAssemblies(); break;
+                        case "unload_assembly":        result = HandleUnloadAssembly(arguments); break;
+                        case "clear_all_assemblies":   result = HandleClearAllAssemblies(); break;
                         case "list_types":          result = HandleListTypes(arguments); break;
                         case "list_namespaces":     result = HandleListNamespaces(arguments); break;
                         case "find_type":           result = HandleFindType(arguments); break;
@@ -309,6 +324,19 @@ namespace BDSM.Server
         private object HandleLoadAssembly(Dictionary<string, object> args)
         {
             return _assemblyLoader.LoadAssembly(GetRequiredArg<string>(args, "path"));
+        }
+
+        private object HandleUnloadAssembly(Dictionary<string, object> args)
+        {
+            var path = GetRequiredArg<string>(args, "path");
+            var removed = _assemblyLoader.UnloadAssembly(path);
+            return new { success = removed, message = removed ? "Assembly unloaded." : "Assembly not found in loaded list." };
+        }
+
+        private object HandleClearAllAssemblies()
+        {
+            var count = _assemblyLoader.ClearAllAssemblies();
+            return new { cleared = count, message = string.Format("{0} assembly(ies) cleared.", count) };
         }
 
         private object HandleListTypes(Dictionary<string, object> args)
