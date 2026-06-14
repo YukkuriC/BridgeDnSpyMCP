@@ -12,10 +12,12 @@ namespace BDSM.Server
     /// <summary>
     /// MCP 工具注册表。
     /// 支持两种模式：
-    /// - 正常模式：暴露全部 17 个分析/反编译工具（需要服务实例）。
+    /// - 正常模式：暴露全部分析/反编译工具（需要服务实例）。
     /// - Setup 模式：仅暴露 configure_dnspy_path 工具（无服务依赖）。
+    ///
+    ///   Modules/McpToolRegistry.*.cs            -- 按功能模块拆分的 partial class
     /// </summary>
-    public class McpToolRegistry
+    public partial class McpToolRegistry
     {
         private readonly AssemblyLoaderService _assemblyLoader;
         private readonly MetadataBrowserService _metadataBrowser;
@@ -70,263 +72,53 @@ namespace BDSM.Server
         {
             if (_isSetupMode)
             {
-                return new ListToolsResult
-                {
-                    Tools = new List<Tool>
-                    {
-                        MakeTool("configure_dnspy_path",
-                            "Configure the dnSpy installation path. Required DLLs are loaded remotely from this path (not copied locally). After configuration, self-check runs automatically. If passed, restart the MCP server to activate full functionality.",
-                            new Dictionary<string, PropertySchema>
-                            {
-                                {"path", new PropertySchema{ Type="string", Description="dnSpy installation directory (e.g. C:\\Program Files\\dnSpy)"}}
-                            },
-                            new List<string> {"path"}),
-                    }
-                };
+                var tools = new List<Tool>();
+                RegisterSetupTools(tools);
+                return new ListToolsResult { Tools = tools };
             }
 
-            return new ListToolsResult
-            {
-                Tools = new List<Tool>
-                {
-                    // ===== 程序集加载与浏览 =====
-                    MakeTool("load_assembly",
-                        "加载一个 .NET 程序集文件（.dll / .exe）以供后续分析。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"path", new PropertySchema{ Type="string", Description="程序集文件的完整路径" }}
-                        },
-                        new List<string> {"path"}),
-
-                    MakeTool("list_assemblies",
-                        "列出当前已加载的所有程序集信息。",
-                        new Dictionary<string, PropertySchema>(),
-                        null),
-
-                    MakeTool("unload_assembly",
-                        "移除单个已加载的程序集，释放资源。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"path", new PropertySchema{ Type="string", Description="要移除的程序集文件路径"}}
-                        },
-                        new List<string> {"path"}),
-
-                    MakeTool("clear_all_assemblies",
-                        "清空所有已加载的程序集，释放全部资源。",
-                        new Dictionary<string, PropertySchema>(),
-                        null),
-
-                    // ===== 引用查找 =====
-                    MakeTool("find_references",
-                        "查找某个成员（方法/字段/属性/事件）在程序集中的所有引用位置。返回包含类型、方法、IL偏移量等信息的列表。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"full_type_name", new PropertySchema{ Type="string", Description="成员所属类型的全限定名"}},
-                            {"member_name", new PropertySchema{ Type="string", Description="要查找的成员名称（方法名、字段名、属性名或事件名）"}}
-                        },
-                        new List<string> {"assembly_path", "full_type_name", "member_name"}),
-
-                    MakeTool("find_all_string_refs",
-                        "查找程序集中包含指定字符串的 ldstr 指令位置。用于定位硬编码字符串的使用处。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"search_string", new PropertySchema{ Type="string", Description="要搜索的字符串（支持子串匹配）"}}
-                        },
-                        new List<string> {"assembly_path", "search_string"}),
-
-                    // ===== 类型查询 =====
-                    MakeTool("list_types",
-                        "列出已加载程序集中的所有顶层类型，支持按命名空间过滤。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"namespace_filter", new PropertySchema{ Type="string", Description="可选，仅列出指定命名空间下的类型"}}
-                        },
-                        new List<string> {"assembly_path"}),
-
-                    MakeTool("list_namespaces",
-                        "列出已加载程序集中的所有命名空间及其包含的类型数量。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}}
-                        },
-                        new List<string> {"assembly_path"}),
-
-                    MakeTool("find_type",
-                        "按名称或全限定名搜索类型（支持模糊匹配）。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"query", new PropertySchema{ Type="string", Description="搜索关键词"}}
-                        },
-                        new List<string> {"assembly_path", "query"}),
-
-                    MakeTool("get_type_info",
-                        "获取指定类型的详细信息：基类、接口、成员统计、修饰符等。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}}
-                        },
-                        new List<string> {"assembly_path", "full_type_name"}),
-
-                    // ---- 成员枚举 ----
-                    MakeTool("list_methods",
-                        "列出指定类型的所有方法（含签名、返回值、可见性等）。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}}
-                        },
-                        new List<string> {"assembly_path", "full_type_name"}),
-
-                    MakeTool("list_fields",
-                        "列出指定类型的所有字段（含类型、常量值、可见性等）。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}}
-                        },
-                        new List<string> {"assembly_path", "full_type_name"}),
-
-                    MakeTool("list_properties",
-                        "列出指定类型的所有属性（含类型、getter/setter 可见性等）。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}}
-                        },
-                        new List<string> {"assembly_path", "full_type_name"}),
-
-                    MakeTool("list_events",
-                        "列出指定类型的所有事件。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}}
-                        },
-                        new List<string> {"assembly_path", "full_type_name"}),
-
-                    MakeTool("get_method_info",
-                        "获取单个方法的完整签名和元数据信息。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"full_type_name", new PropertySchema{ Type="string", Description="所属类型的全限定名"}},
-                            {"method_name", new PropertySchema{ Type="string", Description="方法名"}}
-                        },
-                        new List<string> {"assembly_path", "full_type_name", "method_name"}),
-
-                    MakeTool("get_method_il",
-                        "获取方法的 IL 指令列表（偏移量、操作码、操作数）。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"full_type_name", new PropertySchema{ Type="string", Description="所属类型的全限定名"}},
-                            {"method_name", new PropertySchema{ Type="string", Description="方法名"}}
-                        },
-                        new List<string> {"assembly_path", "full_type_name", "method_name"}),
-
-                    // ===== 反编译输出 =====
-                    MakeTool("decompile_type",
-                        "将指定类型反编译为 C# 源码文本。输出接近原始源码级别的 C# 代码。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"full_type_name", new PropertySchema{ Type="string", Description="要反编译的类型的全限定名"}}
-                        },
-                        new List<string> {"assembly_path", "full_type_name"}),
-
-                    MakeTool("decompile_method",
-                        "将单个方法反编译为 C# 源码文本。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"full_type_name", new PropertySchema{ Type="string", Description="所属类型的全限定名"}},
-                            {"method_name", new PropertySchema{ Type="string", Description="要反编译的方法名"}}
-                        },
-                        new List<string> {"assembly_path", "full_type_name", "method_name"}),
-
-                    MakeTool("decompile_assembly",
-                        "反编译整个程序集中所有类型的 C# 源码。大型程序集建议配合 namespace_filter 使用。结果以 JSON 对象返回（key=类型全名, value=C#代码）。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"namespace_filter", new PropertySchema{ Type="string", Description="可选，仅反编译指定命名空间下的类型"}}
-                        },
-                        new List<string> {"assembly_path"}),
-
-                    MakeTool("decompile_to_il",
-                        "将指定方法输出为 ILASM 格式的中间语言文本（含 .method 声明、.maxstack、指令列表）。",
-                        new Dictionary<string, PropertySchema>
-                        {
-                            {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                            {"full_type_name", new PropertySchema{ Type="string", Description="所属类型的全限定名"}},
-                            {"method_name", new PropertySchema{ Type="string", Description="要输出的方法名"}}
-                        },
-                        new List<string> {"assembly_path", "full_type_name", "method_name"}),
-
-                    // ===== 服务器管理 =====
-                    MakeTool("close_self",
-                        "Gracefully shut down the MCP server process. The server will send a response confirming shutdown, then exit. This is a transport-level termination since MCP has no standard shutdown RPC method.",
-                        new Dictionary<string, PropertySchema>(),
-                        null),
-                }
-            };
+            var allTools = new List<Tool>();
+            RegisterAssemblyTools(allTools);
+            RegisterReferenceTools(allTools);
+            RegisterTypeQueryTools(allTools);
+            RegisterMemberTools(allTools);
+            RegisterMethodDetailTools(allTools);
+            RegisterDecompilationTools(allTools);
+            RegisterServerTools(allTools);
+            return new ListToolsResult { Tools = allTools };
         }
 
         /// <summary>
         /// 分发工具调用到对应的处理方法。
+        /// 各模块通过 TryDispatch 方法自行匹配 toolName 并执行。
         /// </summary>
         public CallToolResult CallTool(string toolName, Dictionary<string, object> arguments)
         {
             try
             {
                 object result;
+                bool handled;
 
                 if (_isSetupMode)
                 {
-                    // Setup 模式：仅处理 configure_dnspy_path
-                    switch (toolName)
-                    {
-                        case "configure_dnspy_path":
-                            result = HandleConfigureDnSpyPath(arguments); break;
-                        default:
-                            throw new NotSupportedException(
-                                "Unknown tool: " + toolName +
-                                ". Currently in setup mode. Use 'configure_dnspy_path' to configure dnSpy first.");
-                    }
+                    handled = TryDispatchSetup(toolName, arguments, out result);
+                    if (!handled)
+                        throw new NotSupportedException(
+                            "Unknown tool: " + toolName +
+                            ". Currently in setup mode. Use 'configure_dnspy_path' to configure dnSpy first.");
                 }
                 else
                 {
-                    // 正常模式：分发到各服务方法
-                    switch (toolName)
-                    {
-                        case "load_assembly":          result = HandleLoadAssembly(arguments); break;
-                        case "list_assemblies":        result = _assemblyLoader.ListAssemblies(); break;
-                        case "unload_assembly":        result = HandleUnloadAssembly(arguments); break;
-                        case "clear_all_assemblies":   result = HandleClearAllAssemblies(); break;
-                        case "find_references":       result = HandleFindReferences(arguments); break;
-                        case "find_all_string_refs":  result = HandleFindAllStringRefs(arguments); break;
-                        case "list_types":          result = HandleListTypes(arguments); break;
-                        case "list_namespaces":     result = HandleListNamespaces(arguments); break;
-                        case "find_type":           result = HandleFindType(arguments); break;
-                        case "get_type_info":       result = HandleGetTypeInfo(arguments); break;
-                        case "list_methods":        result = HandleListMethods(arguments); break;
-                        case "list_fields":         result = HandleListFields(arguments); break;
-                        case "list_properties":     result = HandleListProperties(arguments); break;
-                        case "list_events":         result = HandleListEvents(arguments); break;
-                        case "get_method_info":     result = HandleGetMethodInfo(arguments); break;
-                        case "get_method_il":       result = HandleGetMethodIL(arguments); break;
-                        case "decompile_type":      result = HandleDecompileType(arguments); break;
-                        case "decompile_method":    result = HandleDecompileMethod(arguments); break;
-                        case "decompile_assembly":  result = HandleDecompileAssembly(arguments); break;
-                        case "decompile_to_il":     result = HandleDecompileToIL(arguments); break;
-                        case "mcp_dnspy-mcp_shutdown_server": result = HandleShutdownServer(); break;
-                        default: throw new NotSupportedException("Unknown tool: " + toolName);
-                    }
+                    handled = TryDispatchAssembly(toolName, arguments, out result)
+                           || TryDispatchReferences(toolName, arguments, out result)
+                           || TryDispatchTypeQuery(toolName, arguments, out result)
+                           || TryDispatchMembers(toolName, arguments, out result)
+                           || TryDispatchMethodDetail(toolName, arguments, out result)
+                           || TryDispatchDecompilation(toolName, arguments, out result)
+                           || TryDispatchServer(toolName, arguments, out result)
+                           ;
+                    if (!handled)
+                        throw new NotSupportedException("Unknown tool: " + toolName);
                 }
 
                 return new CallToolResult
@@ -345,161 +137,7 @@ namespace BDSM.Server
             }
         }
 
-        // ---- 工具处理器 ----
-
-        private object HandleConfigureDnSpyPath(Dictionary<string, object> args)
-        {
-            var path = GetRequiredArg<string>(args, "path");
-            return DnSpyDependencyResolver.ConfigureAndRetry(path);
-        }
-
-        private object HandleLoadAssembly(Dictionary<string, object> args)
-        {
-            return _assemblyLoader.LoadAssembly(GetRequiredArg<string>(args, "path"));
-        }
-
-        private object HandleUnloadAssembly(Dictionary<string, object> args)
-        {
-            var path = GetRequiredArg<string>(args, "path");
-            var removed = _assemblyLoader.UnloadAssembly(path);
-            return new { success = removed, message = removed ? "Assembly unloaded." : "Assembly not found in loaded list." };
-        }
-
-        private object HandleClearAllAssemblies()
-        {
-            var count = _assemblyLoader.ClearAllAssemblies();
-            return new { cleared = count, message = string.Format("{0} assembly(ies) cleared.", count) };
-        }
-
-        private object HandleFindReferences(Dictionary<string, object> args)
-        {
-            return _metadataBrowser.FindReferences(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "member_name"));
-        }
-
-        private object HandleFindAllStringRefs(Dictionary<string, object> args)
-        {
-            return _metadataBrowser.FindAllStringRefs(
-                GetRequiredArg<string>(args, "search_string"));
-        }
-
-        private object HandleListTypes(Dictionary<string, object> args)
-        {
-            return _metadataBrowser.ListTypes(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetOptionalArg<string>(args, "namespace_filter"));
-        }
-
-        private object HandleListNamespaces(Dictionary<string, object> args)
-        {
-            return _metadataBrowser.ListNamespaces(GetRequiredArg<string>(args, "assembly_path"));
-        }
-
-        private object HandleFindType(Dictionary<string, object> args)
-        {
-            return _metadataBrowser.FindType(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "query"));
-        }
-
-        private object HandleGetTypeInfo(Dictionary<string, object> args)
-        {
-            var info = _metadataBrowser.GetTypeInfo(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"));
-            if (info == null) throw new Services.NotFoundException("Type not found.");
-            return info;
-        }
-
-        private object HandleListMethods(Dictionary<string, object> args)
-        {
-            return _metadataBrowser.ListMethods(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"));
-        }
-
-        private object HandleListFields(Dictionary<string, object> args)
-        {
-            return _metadataBrowser.ListFields(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"));
-        }
-
-        private object HandleListProperties(Dictionary<string, object> args)
-        {
-            return _metadataBrowser.ListProperties(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"));
-        }
-
-        private object HandleListEvents(Dictionary<string, object> args)
-        {
-            return _metadataBrowser.ListEvents(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"));
-        }
-
-        private object HandleGetMethodInfo(Dictionary<string, object> args)
-        {
-            var info = _metadataBrowser.GetMethodInfo(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "method_name"));
-            if (info == null) throw new Services.NotFoundException("Method not found.");
-            return info;
-        }
-
-        private object HandleGetMethodIL(Dictionary<string, object> args)
-        {
-            var il = _metadataBrowser.GetMethodIL(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "method_name"));
-            if (il == null) throw new Services.NotFoundException("Method has no body or not found.");
-            return il;
-        }
-
-        private object HandleDecompileType(Dictionary<string, object> args)
-        {
-            return _decompilation.DecompileType(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"));
-        }
-
-        private object HandleDecompileMethod(Dictionary<string, object> args)
-        {
-            return _decompilation.DecompileMethod(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "method_name"));
-        }
-
-        private object HandleDecompileAssembly(Dictionary<string, object> args)
-        {
-            return _decompilation.DecompileAssembly(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetOptionalArg<string>(args, "namespace_filter"));
-        }
-
-        private object HandleDecompileToIL(Dictionary<string, object> args)
-        {
-            return _decompilation.DecompileMethodToIL(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "method_name"));
-        }
-
-        private object HandleShutdownServer()
-        {
-            var result = new { status = "shutting_down", message = "Server will exit after this response." };
-            // 延迟触发 shutdown，确保响应先发送给客户端
-            _onShutdown?.Invoke();
-            return result;
-        }
-
-        // ---- 辅助 ----
+        // ---- 辅助方法 ----
 
         private static Tool MakeTool(string name, string desc, Dictionary<string, PropertySchema> props, List<string> required)
         {

@@ -85,6 +85,14 @@
     <Compile Include="Services\DecompilationService.cs" />
     <Compile Include="Server\Protocol\McpTypes.cs" />
     <Compile Include="Server\McpToolRegistry.cs" />
+    <Compile Include="Server\Modules\McpToolRegistry.Setup.cs" />
+    <Compile Include="Server\Modules\McpToolRegistry.Assembly.cs" />
+    <Compile Include="Server\Modules\McpToolRegistry.References.cs" />
+    <Compile Include="Server\Modules\McpToolRegistry.TypeQuery.cs" />
+    <Compile Include="Server\Modules\McpToolRegistry.Members.cs" />
+    <Compile Include="Server\Modules\McpToolRegistry.MethodDetail.cs" />
+    <Compile Include="Server\Modules\McpToolRegistry.Decompilation.cs" />
+    <Compile Include="Server\Modules\McpToolRegistry.Server.cs" />
     <Compile Include="Server\McpServer.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
