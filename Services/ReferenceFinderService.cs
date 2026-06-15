@@ -16,8 +16,9 @@ namespace BDSM.Services
 {
     /* ==================================================================
      * 反射缓存：延迟解析 dnSpy.Analyzer.TreeNodes.ScopedWhereUsedAnalyzer<T>
-     * 该类型为 internal，通过 dnspy-console 反编译确认构造签名后用反射调用。
+     * 该类型为 internal，通过反射获取泛型定义后创建实例。
      * Lazy 保证在 DnSpyDependencyResolver 注册 AssemblyResolve 之后才触发类型加载。
+     * 所有反射结果均缓存，避免重复查找。
      * ================================================================== */
 
     static class AnalyzerReflection
@@ -30,22 +31,28 @@ namespace BDSM.Services
             return asm.GetType(TypeName, throwOnError: true);
         });
 
-        static Type AnalyzerType => _typeLazy.Value;
+        // 泛型定义 -> 已构造类型缓存
+        static readonly ConcurrentDictionary<Type, Type> _constructedCache = new ConcurrentDictionary<Type, Type>();
 
-        static readonly Lazy<ConstructorInfo> _ctorLazy = new Lazy<ConstructorInfo>(() =>
-            AnalyzerType.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
-                .Single(c => c.GetParameters().Length == 3));
+        // 已构造类型 -> 构造函数数组缓存
+        static readonly ConcurrentDictionary<Type, ConstructorInfo[]> _ctorCache = new ConcurrentDictionary<Type, ConstructorInfo[]>();
 
+        // PerformAnalysis 方法信息缓存（所有泛型实例共享同一 MethodDef）
         static readonly Lazy<System.Reflection.MethodInfo> _performAnalysisLazy = new Lazy<System.Reflection.MethodInfo>(() =>
-            AnalyzerType.GetMethod("PerformAnalysis", BindingFlags.Public | BindingFlags.Instance));
+            _constructedCache.Values.First().GetMethod("PerformAnalysis", BindingFlags.Public | BindingFlags.Instance));
 
         /// <summary>
-        /// 通过反射创建 ScopedWhereUsedAnalyzer&lt;T&gt; 实例。
-        /// 构造签名（dnspy-console 确认）：
-        ///   (IDsDocumentService documentService, IMemberRef member, Func&lt;TypeDef, IEnumerable&lt;T&gt;&gt; typeAnalysisFunction)
+        /// 通过反射创建 ScopedWhereUsedAnalyzer&lt;T&gt; 实例（public 构造函数）。
+        /// 签名：(IDsDocumentService, &lt;member类型&gt;, Func&lt;TypeDef, IEnumerable&lt;T&gt;&gt;, ScopedWhereUsedAnalyzerOptions)
         /// </summary>
-        public static object Create<T>(IDsDocumentService docSvc, IMemberRef member, Func<TypeDef, IEnumerable<T>> scanFn) =>
-            _ctorLazy.Value.Invoke(new object[] { docSvc, member, scanFn });
+        public static object Create<T>(IDsDocumentService docSvc, IMemberRef member, Func<TypeDef, IEnumerable<T>> scanFn)
+        {
+            var t = typeof(T);
+            var constructed = _constructedCache.GetOrAdd(t, _ => _typeLazy.Value.MakeGenericType(t));
+            var ctors = _ctorCache.GetOrAdd(constructed, c => c.GetConstructors(BindingFlags.Public | BindingFlags.Instance));
+            var ctor = ctors.Single(c => c.GetParameters()[1].ParameterType.IsAssignableFrom(member.GetType()));
+            return ctor.Invoke(new object[] { docSvc, member, scanFn, (int)0 });
+        }
 
         /// <summary>
         /// 通过反射调用 PerformAnalysis(CancellationToken) 返回 IEnumerable&lt;T&gt;。
