@@ -129,7 +129,7 @@ namespace BDSM.Server
             {
                 return new CallToolResult
                 {
-                    Content = new List<ContentBase> { new TextContent("Error: " + ex.Message) },
+                    Content = new List<ContentBase> { new TextContent(ex.GetType().Name + ": " + ex.Message) },
                     IsError = true
                 };
             }
