@@ -73,7 +73,7 @@ BridgeDnSpyMCP Server (.NET Framework 4.8, C#)
   +-- 核心依赖（运行时从 dnSpy 安装目录远程加载，不拷贝本地）
   |     |-- dnlib.dll              -- .NET 元数据读写
   |     |-- dnSpy.Contracts*.dll   -- dnSpy 契约接口
-  |     |-- dnSpy.Analyzer.x       -- 引用分析引擎（通过 Publicizer 公开 internal 类型）
+  |     |-- dnSpy.Analyzer.x       -- 引用分析引擎（通过反射调用 internal 类型）
   |     |-- ILSpy.*.dll            -- 反编译引擎
   |     |-- System.Composition.dll -- MEF v2 容器
   |     |-- Newtonsoft.Json.dll    -- JSON 序列化
@@ -176,9 +176,9 @@ DnSpyPath=C:/dnSpy
 
 | 决策 | 说明 |
 |------|------|
-| 目标框架 | .NET Framework 4.8，零额外 NuGet 运行时依赖（仅构建期依赖 Krafs.Publicizer），普通 Windows 电脑可直接运行 |
+| 目标框架 | .NET Framework 4.8，零 NuGet 依赖（含构建期），普通 Windows 电脑可直接运行 |
 | 依赖加载方式 | 运行时通过 `AssemblyResolve` 从 dnSpy 安装目录远程加载 DLL，不拷贝不枚举，支持 dnSpy 根目录和 `bin\` 子目录两级搜索 |
-| Publicizer | 使用 [Krafs.Publicizer](https://www.nuget.org/packages/Krafs.Publicizer) 将 `dnSpy.Analyzer.x` 的 internal 类型公开化，直接调用 `ScopedWhereUsedAnalyzer` 实现引用查找 |
+| internal 类型访问 | 通过反射 + Lazy 缓存调用 `dnSpy.Analyzer.x` 的 `ScopedWhereUsedAnalyzer<T>` 等内部类型，构造签名经 `dnspy-console` 反编译确认 |
 | 自检与 Setup 模式 | 启动时尝试加载 dnSpy.Console.exe 验证依赖链完整性；失败则降级为仅暴露配置工具的 Setup 模式，让 MCP agent 自助修复路径 |
 | 反编译方式 | 直接使用 ILSpy 公开 API：`AstBuilder`（C#）与 `ReflectionDisassembler`（IL），无需经过 internal 的 `IDecompiler`/`CSharpDecompiler` |
 | 输出目标 | 使用自定义 `PlainTextOutput : IDecompilerOutput`，将反编译结果收集到 StringBuilder，忽略 IDE 特有的颜色/引用标记 |
@@ -200,5 +200,4 @@ DnSpyPath=C:/dnSpy
 - [dnSpy 仓库](https://github.com/dnSpyEx/dnSpy)
 - [dnlib (底层元数据库)](https://github.com/0xd4d/dnlib)
 - [ILSpy (反编译引擎)](https://github.com/icsharpcode/ILSpy)
-- [Krafs.Publicizer (NuGet)](https://www.nuget.org/packages/Krafs.Publicizer)
 - [MCP 官方规范](https://modelcontextprotocol.io/specification/2025-11-25)

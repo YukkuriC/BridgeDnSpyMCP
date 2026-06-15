@@ -104,7 +104,7 @@ BridgeDnSpyMCP Server (.NET Framework 4.8 C#)
   |
   +-- 核心依赖（运行时从 dnSpy 安装目录远程加载）
   |     |-- dnlib              (.NET 元数据读写)
-  |     |-- dnSpy.Analyzer.x   (引用分析引擎，Publicizer 公开)
+  |     |-- dnSpy.Analyzer.x   (引用分析引擎，反射调用 internal 类型)
   |     |-- ILSpy.*            (反编译引擎)
   |     |-- Newtonsoft.Json    (JSON 序列化)
   |

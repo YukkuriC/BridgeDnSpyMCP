@@ -3,25 +3,20 @@
 using System;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
-using dnSpy.Analyzer.TreeNodes;
 
 namespace BDSM.Services
 {
     /// <summary>
-    /// dnSpy 公共工具方法。复用 Publicizer 暴露的内部 API，
-    /// 消除各 Service 中的重复实现。
+    /// dnSpy 公共工具方法。
     /// </summary>
     static class DnSpyUtils
     {
         /// <summary>
-        /// 使用 dnSpy Helpers.IsCompilerGenerated 判断编译器生成类型/方法。
-        /// 比 Name.Contains("&lt;") 启发式更准确。
+        /// 判断编译器生成类型/方法（含 CompilerGeneratedAttribute）。
+        /// 原 Helpers.IsCompilerGenerated 的等价实现（通过 dnspy-console 反编译确认）。
         /// </summary>
-        public static bool IsCompilerGenerated(TypeDef t) =>
-            Helpers.IsCompilerGenerated(t);
-
-        public static bool IsCompilerGenerated(MethodDef m) =>
-            Helpers.IsCompilerGenerated(m);
+        public static bool IsCompilerGenerated(IHasCustomAttribute obj) =>
+            obj != null && obj.CustomAttributes.IsDefined("System.Runtime.CompilerServices.CompilerGeneratedAttribute");
 
         /// <summary>IL 操作数格式化为可读字符串。</summary>
         public static string FormatOperand(object operand)

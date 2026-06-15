@@ -58,13 +58,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
 
-    <!-- Publicizer：将 dnSpy 的 internal 类型公开化 -->
-    <PackageReference Include="Krafs.Publicizer" Version="2.3.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
 
-    <!-- dnSpy Console 入口 -->
     <Reference Include="$(DnSpyPath)\dnSpy.Console.exe">
       <Private>False</Private>
     </Reference>
@@ -73,11 +67,6 @@
     <Reference Include="$(DnSpyPath)\bin\*.dll">
       <Private>False</Private>
     </Reference>
-  </ItemGroup>
-
-  <!-- Publicizer：公开 dnSpy internal 类型供直接调用 -->
-  <ItemGroup>
-    <Publicize Include="dnSpy.Analyzer.x" />
   </ItemGroup>
 
   <ItemGroup>

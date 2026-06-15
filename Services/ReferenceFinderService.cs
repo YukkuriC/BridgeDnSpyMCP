@@ -4,16 +4,56 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 using dnSpy.Contracts.Documents;
-using dnSpy.Analyzer.TreeNodes;
 using BDSM.Models;
 
 namespace BDSM.Services
 {
+    /* ==================================================================
+     * 反射缓存：延迟解析 dnSpy.Analyzer.TreeNodes.ScopedWhereUsedAnalyzer<T>
+     * 该类型为 internal，通过 dnspy-console 反编译确认构造签名后用反射调用。
+     * Lazy 保证在 DnSpyDependencyResolver 注册 AssemblyResolve 之后才触发类型加载。
+     * ================================================================== */
+
+    static class AnalyzerReflection
+    {
+        const string TypeName = "dnSpy.Analyzer.TreeNodes.ScopedWhereUsedAnalyzer`1";
+
+        static readonly Lazy<Type> _typeLazy = new Lazy<Type>(() =>
+        {
+            var asm = Assembly.Load("dnSpy.Analyzer.x");
+            return asm.GetType(TypeName, throwOnError: true);
+        });
+
+        static Type AnalyzerType => _typeLazy.Value;
+
+        static readonly Lazy<ConstructorInfo> _ctorLazy = new Lazy<ConstructorInfo>(() =>
+            AnalyzerType.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
+                .Single(c => c.GetParameters().Length == 3));
+
+        static readonly Lazy<System.Reflection.MethodInfo> _performAnalysisLazy = new Lazy<System.Reflection.MethodInfo>(() =>
+            AnalyzerType.GetMethod("PerformAnalysis", BindingFlags.Public | BindingFlags.Instance));
+
+        /// <summary>
+        /// 通过反射创建 ScopedWhereUsedAnalyzer&lt;T&gt; 实例。
+        /// 构造签名（dnspy-console 确认）：
+        ///   (IDsDocumentService documentService, IMemberRef member, Func&lt;TypeDef, IEnumerable&lt;T&gt;&gt; typeAnalysisFunction)
+        /// </summary>
+        public static object Create<T>(IDsDocumentService docSvc, IMemberRef member, Func<TypeDef, IEnumerable<T>> scanFn) =>
+            _ctorLazy.Value.Invoke(new object[] { docSvc, member, scanFn });
+
+        /// <summary>
+        /// 通过反射调用 PerformAnalysis(CancellationToken) 返回 IEnumerable&lt;T&gt;。
+        /// </summary>
+        public static IEnumerable<T> PerformAnalysis<T>(object analyzer, CancellationToken ct) =>
+            (IEnumerable<T>)_performAnalysisLazy.Value.Invoke(analyzer, new object[] { ct });
+    }
+
     /* ==================================================================
      * 最小适配器层：将 AssemblyLoaderService 适配为 dnSpy 文档服务接口
      * 仅实现 ScopedWhereUsedAnalyzer 运行时实际调用的成员
@@ -82,11 +122,11 @@ namespace BDSM.Services
     }
 
     /* ==================================================================
-     * 引用查找服务 -- 委托给 dnSpy ScopedWhereUsedAnalyzer
+     * 引用查找服务 -- 通过反射调用 dnSpy ScopedWhereUsedAnalyzer
      * ================================================================== */
 
     /// <summary>
-    /// 引用查找服务。通过 Publicizer 调用 dnSpy 内部分析引擎
+    /// 引用查找服务。通过反射调用 dnSpy 内部分析引擎
     /// （ScopedWhereUsedAnalyzer），自动处理可访问性范围判定、
     /// 友元程序集检测、PLINQ 并行扫描。
     /// </summary>
@@ -103,7 +143,7 @@ namespace BDSM.Services
 
         /// <summary>
         /// 查找某个成员在所有已加载程序集中的引用位置。
-        /// 委托给 ScopedWhereUsedAnalyzer 执行范围分析和并行扫描。
+        /// 通过反射构造 ScopedWhereUsedAnalyzer 并执行分析。
         /// </summary>
         public List<ReferenceInfo> FindReferences(string assemblyPath, string fullTypeName, string memberName)
         {
@@ -115,12 +155,13 @@ namespace BDSM.Services
             // 解析目标成员
             var targetMember = ResolveMember(targetType, memberName);
 
-            // 构造分析器并执行（闭包捕获 targetMember 用于指令匹配）
+            // 通过反射构造分析器并执行
             var docSvc = new McpDocumentService(_loader);
             _currentTarget = targetMember;
             try
             {
-                return CreateAnalyzer(docSvc, targetMember).PerformAnalysis(CancellationToken.None).ToList();
+                var analyzer = AnalyzerReflection.Create<ReferenceInfo>(docSvc, targetMember, ScanType);
+                return AnalyzerReflection.PerformAnalysis<ReferenceInfo>(analyzer, CancellationToken.None).ToList();
             }
             finally { _currentTarget = null; }
         }
@@ -154,21 +195,6 @@ namespace BDSM.Services
             });
 
             return results.OrderBy(r => r.ContainingType).ThenBy(r => r.Offset).ToList();
-        }
-
-        /* ---- 内部：构造对应成员类型的 ScopedWhereUsedAnalyzer ---- */
-
-        ScopedWhereUsedAnalyzer<ReferenceInfo> CreateAnalyzer(IDsDocumentService docSvc, IMemberRef member)
-        {
-            var scanFn = new Func<TypeDef, IEnumerable<ReferenceInfo>>(ScanType);
-            switch (member)
-            {
-                case MethodDef m:  return new ScopedWhereUsedAnalyzer<ReferenceInfo>(docSvc, m, scanFn);
-                case FieldDef f:   return new ScopedWhereUsedAnalyzer<ReferenceInfo>(docSvc, f, scanFn);
-                case PropertyDef p: return new ScopedWhereUsedAnalyzer<ReferenceInfo>(docSvc, p, scanFn);
-                case EventDef e:    return new ScopedWhereUsedAnalyzer<ReferenceInfo>(docSvc, e, scanFn);
-                default:           throw new NotSupportedException("Unsupported member type: " + member.GetType().Name);
-            }
         }
 
         /* ---- 回调：ScopedWhereUsedAnalyzer 对每个类型调用此方法执行 IL 扫描 ---- */
