@@ -52,6 +52,12 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
 
+    <!-- Newtonsoft.Json：复制到输出目录 -->
+    <None Include="$(DnSpyPath)\bin\Newtonsoft.Json.dll">
+      <Link>Newtonsoft.Json.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+
     <!-- Publicizer：将 dnSpy 的 internal 类型公开化 -->
     <PackageReference Include="Krafs.Publicizer" Version="2.3.0">
       <PrivateAssets>all</PrivateAssets>
