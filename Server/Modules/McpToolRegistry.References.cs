@@ -29,6 +29,8 @@ namespace BDSM.Server
                     {"search_string", new PropertySchema{ Type="string", Description="要搜索的字符串（支持子串匹配）"}}
                 },
                 new List<string> {"assembly_path", "search_string"}));
+
+            _dispatchers.Add(DispatchReferences);
         }
 
         private bool DispatchReferences(string toolName, Dictionary<string, object> args, out object result)
