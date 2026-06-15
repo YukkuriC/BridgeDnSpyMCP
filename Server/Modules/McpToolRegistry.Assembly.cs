@@ -37,9 +37,10 @@ namespace BDSM.Server
                 "清空所有已加载的程序集，释放全部资源。",
                 new Dictionary<string, PropertySchema>(),
                 null));
+            _dispatchers.Add(DispatchAssembly);
         }
 
-        private bool TryDispatchAssembly(string toolName, Dictionary<string, object> args, out object result)
+        private bool DispatchAssembly(string toolName, Dictionary<string, object> args, out object result)
         {
             switch (toolName)
             {

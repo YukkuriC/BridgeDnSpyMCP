@@ -29,6 +29,7 @@ namespace BDSM.Server
                     {"method_name", new PropertySchema{ Type="string", Description="要反编译的方法名"}}
                 },
                 new List<string> {"assembly_path", "full_type_name", "method_name"}));
+            _dispatchers.Add(DispatchDecompilation);
 
             tools.Add(MakeTool("decompile_assembly",
                 "反编译整个程序集中所有类型的 C# 源码。大型程序集建议配合 namespace_filter 使用。结果以 JSON 对象返回（key=类型全名, value=C#代码）。",
@@ -50,7 +51,7 @@ namespace BDSM.Server
                 new List<string> {"assembly_path", "full_type_name", "method_name"}));
         }
 
-        private bool TryDispatchDecompilation(string toolName, Dictionary<string, object> args, out object result)
+        private bool DispatchDecompilation(string toolName, Dictionary<string, object> args, out object result)
         {
             switch (toolName)
             {

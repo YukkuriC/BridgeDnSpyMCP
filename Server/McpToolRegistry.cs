@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using BDSM.Services;
@@ -25,6 +26,10 @@ namespace BDSM.Server
         private readonly JsonSerializerSettings _jsonSettings;
         private readonly bool _isSetupMode;
         private readonly Action _onShutdown;
+        private readonly List<ToolDispatcher> _dispatchers = new List<ToolDispatcher>();
+
+        /// <summary>工具分发委托：各模块注册自己的匹配+执行逻辑</summary>
+        private delegate bool ToolDispatcher(string toolName, Dictionary<string, object> args, out object result);
 
         // ---- 正常模式构造函数 ----
 
@@ -96,12 +101,12 @@ namespace BDSM.Server
         {
             try
             {
-                object result;
+                object result = null;
                 bool handled;
 
                 if (_isSetupMode)
                 {
-                    handled = TryDispatchSetup(toolName, arguments, out result);
+                    handled = DispatchSetup(toolName, arguments, out result);
                     if (!handled)
                         throw new NotSupportedException(
                             "Unknown tool: " + toolName +
@@ -109,14 +114,7 @@ namespace BDSM.Server
                 }
                 else
                 {
-                    handled = TryDispatchAssembly(toolName, arguments, out result)
-                           || TryDispatchReferences(toolName, arguments, out result)
-                           || TryDispatchTypeQuery(toolName, arguments, out result)
-                           || TryDispatchMembers(toolName, arguments, out result)
-                           || TryDispatchMethodDetail(toolName, arguments, out result)
-                           || TryDispatchDecompilation(toolName, arguments, out result)
-                           || TryDispatchServer(toolName, arguments, out result)
-                           ;
+                    handled = _dispatchers.Any(d => d(toolName, arguments, out result));
                     if (!handled)
                         throw new NotSupportedException("Unknown tool: " + toolName);
                 }

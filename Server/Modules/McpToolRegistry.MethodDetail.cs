@@ -30,9 +30,10 @@ namespace BDSM.Server
                     {"method_name", new PropertySchema{ Type="string", Description="方法名"}}
                 },
                 new List<string> {"assembly_path", "full_type_name", "method_name"}));
+            _dispatchers.Add(DispatchMethodDetail);
         }
 
-        private bool TryDispatchMethodDetail(string toolName, Dictionary<string, object> args, out object result)
+        private bool DispatchMethodDetail(string toolName, Dictionary<string, object> args, out object result)
         {
             switch (toolName)
             {

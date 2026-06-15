@@ -45,9 +45,10 @@ namespace BDSM.Server
                     {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}}
                 },
                 new List<string> {"assembly_path", "full_type_name"}));
+            _dispatchers.Add(DispatchTypeQuery);
         }
 
-        private bool TryDispatchTypeQuery(string toolName, Dictionary<string, object> args, out object result)
+        private bool DispatchTypeQuery(string toolName, Dictionary<string, object> args, out object result)
         {
             switch (toolName)
             {

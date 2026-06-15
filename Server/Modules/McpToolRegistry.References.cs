@@ -31,7 +31,7 @@ namespace BDSM.Server
                 new List<string> {"assembly_path", "search_string"}));
         }
 
-        private bool TryDispatchReferences(string toolName, Dictionary<string, object> args, out object result)
+        private bool DispatchReferences(string toolName, Dictionary<string, object> args, out object result)
         {
             switch (toolName)
             {

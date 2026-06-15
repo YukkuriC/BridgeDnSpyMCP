@@ -94,9 +94,10 @@ BridgeDnSpyMCP Server (.NET Framework 4.8, C#)
   |     |-- Models/Models.cs           -- AssemblyInfo, TypeInfo, MethodInfo, ReferenceInfo 等
   |
   +-- MCP 协议层
-  |     |-- Server/McpToolRegistry.cs  -- 工具注册表（正常模式 19 工具 / Setup 模式 1 工具）与调用分发
-  |     |-- Server/McpServer.cs        -- stdio NDJSON JSON-RPC 消息循环
-  |     |-- Server/Protocol/McpTypes.cs -- 协议类型定义（Tool, InputSchema, ContentBase 等）
+  |     |-- Server/McpToolRegistry.cs          -- 工具注册表核心：字段、构造函数、ListTools/CallTool 分发、辅助方法
+  |     |-- Server/Modules/McpToolRegistry.*.cs -- 按功能模块拆分的 partial class（定义+处理+分发器注册）
+  |     |-- Server/McpServer.cs                -- stdio NDJSON JSON-RPC 消息循环
+  |     |-- Server/Protocol/McpTypes.cs         -- 协议类型定义（Tool, InputSchema, ContentBase 等）
 ```
 
 ## 构建与运行

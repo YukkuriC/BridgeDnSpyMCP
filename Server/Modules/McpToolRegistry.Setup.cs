@@ -18,9 +18,10 @@ namespace BDSM.Server
                     {"path", new PropertySchema{ Type="string", Description="dnSpy installation directory (e.g. C:\\Program Files\\dnSpy)"}}
                 },
                 new List<string> {"path"}));
+            _dispatchers.Add(DispatchSetup);
         }
 
-        private bool TryDispatchSetup(string toolName, Dictionary<string, object> args, out object result)
+        private bool DispatchSetup(string toolName, Dictionary<string, object> args, out object result)
         {
             if (toolName == "configure_dnspy_path")
             {

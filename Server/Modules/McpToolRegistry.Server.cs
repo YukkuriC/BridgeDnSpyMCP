@@ -14,9 +14,10 @@ namespace BDSM.Server
                 "Gracefully shut down the MCP server process. The server will send a response confirming shutdown, then exit. This is a transport-level termination since MCP has no standard shutdown RPC method.",
                 new Dictionary<string, PropertySchema>(),
                 null));
+            _dispatchers.Add(DispatchServer);
         }
 
-        private bool TryDispatchServer(string toolName, Dictionary<string, object> args, out object result)
+        private bool DispatchServer(string toolName, Dictionary<string, object> args, out object result)
         {
             if (toolName == "close_self")
             {
