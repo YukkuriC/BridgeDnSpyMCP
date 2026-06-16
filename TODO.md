@@ -95,54 +95,16 @@
 
 ---
 
-## 技术架构方案
+## 技术架构
 
-### 推荐方案: 轻量级 headless 提取（覆盖 ~70% 使用场景）
+> 采用轻量级 headless 方案，详见 [README.md 技术架构](../README.md#L68-L101)。
+> 以下仅记录已确定方案中**尚未实现**的能力。
 
-```
-BridgeDnSpyMCP Server (.NET Framework 4.8 C#)
-  |
-  +-- 核心依赖（运行时从 dnSpy 安装目录远程加载）
-  |     |-- dnlib              (.NET 元数据读写)
-  |     |-- dnSpy.Analyzer.x   (引用分析引擎，反射调用 internal 类型)
-  |     |-- ILSpy.*            (反编译引擎)
-  |     |-- Newtonsoft.Json    (JSON 序列化)
-  |
-  +-- 入口与基础设施
-  |     |-- ConfigManager           (bdsm.ini 配置管理)
-  |     |-- DnSpyDependencyResolver (AssemblyResolve + 自检 + Setup 模式)
-  |
-  +-- 能力层
-  |     |-- AssemblyLoader      程序集加载与管理 (dnlib)
-  |     |-- ReferenceFinder     引用查找 (ScopedWhereUsedAnalyzer) -- 已实现
-  |     |-- MetadataBrowser     元数据浏览与查询
-  |     |-- DecompilationService 反编译服务（C#/IL，AstBuilder/ReflectionDisassembler）
-  |     |-- DnSpyUtils          公共工具方法
-  |     |-- AssemblyEditor       程集编辑（待实现）
-  |
-  +-- MCP 协议层
-  |     |-- Tool 定义与注册（正常/Setup 双模式）
-  |     |-- stdio NDJSON 传输
-```
+### 待实现能力
 
-**优势**: 无 WPF 依赖、启动快、适合 serverless 部署
-
-### 备选方案: 进程内嵌入（完整功能含调试器）
-
-```
-BridgeDnSpyMCP Server (.NET Framework 4.8, Windows only)
-  |
-  +-- 引用 dnSpy.Contracts.* 全套
-  +-- WPF Application 宿主（隐藏窗口）
-  +-- MEF CompositionContainer 初始化
-  +-- 加载 dnSpy 各部件(Parts)
-  +-- 暴露 MCP Tool 接口
-```
-
-**优势**: 可使用调试器在内的全部 dnSpy 能力
-**劣势**: 仅限 Windows、重量级、需 WPF 运行时
-
----
+| 模块 | 说明 | 备注 |
+|------|------|------|
+| AssemblyEditor | 程序集编辑（IL 修改、方法体替换等） | 当前为只读分析工具 |
 
 ## 关键技术依赖
 
