@@ -4,9 +4,9 @@
 
 基于 [dnSpyEx/dnSpy](https://github.com/dnSpyEx/dnSpy) 的 MCP (Model Context Protocol) 服务器，将 .NET 程序集反编译与分析能力暴露为 AI 可调用的工具接口。
 
-## 已实现功能（Phase 1 + 引用查找）
+## 已实现功能（Phase 1 + 引用查找 + 编辑能力）
 
-共 **20 个工具**（正常模式 19 个 + Setup 模式 1 个），覆盖程序集加载管理、引用查找、类型浏览、成员查询、C#/IL 反编译、服务器管理六大类。
+共 **32 个工具**（正常模式 31 个 + Setup 模式 1 个），覆盖程序集加载管理、引用查找、类型浏览、成员查询、C#/IL 反编译、**程序集编辑**、服务器管理七大类。
 
 ### 程序集加载与管理
 
@@ -53,6 +53,23 @@
 | `decompile_assembly` | 反编译整个程序集中指定命名空间下的所有类型。结果以 JSON 对象返回（key=类型全名, value=C#代码） | C#（多类型合并） |
 | `decompile_to_il` | 将指定方法输出为 ILASM 格式的中间语言文本（含 .method 声明、.maxstack、指令列表） | ILASM |
 
+### 程序集编辑
+
+| 工具名 | 功能 | 参数 |
+|--------|------|------|
+| `rename_type` | 重命名类型 | `assembly_path`, `full_type_name`, `new_name` |
+| `rename_method` | 重命名方法 | `assembly_path`, `full_type_name`, `method_name`, `new_name` |
+| `rename_field` | 重命名字段 | `assembly_path`, `full_type_name`, `field_name`, `new_name` |
+| `rename_property` | 重命名属性 | `assembly_path`, `full_type_name`, `property_name`, `new_name` |
+| `rename_event` | 重命名事件 | `assembly_path`, `full_type_name`, `event_name`, `new_name` |
+| `add_field` | 添加字段到指定类型 | `assembly_path`, `full_type_name`, `field_name`, `field_type`(可选), `is_static`(可选), `is_public`(可选) |
+| `add_method` | 添加空方法到指定类型（仅含 ret） | `assembly_path`, `full_type_name`, `method_name`, `param_count`(可选), `is_static`(可选), `is_public`(可选) |
+| `remove_member` | 删除成员（方法/字段/属性/事件） | `assembly_path`, `full_type_name`, `member_name`, `member_type`(可选, 默认 method) |
+| `edit_method_il` | 替换方法的全部 IL 指令，每行一条 "OpCode Operand" | `assembly_path`, `full_type_name`, `method_name`, `instructions`(字符串数组) |
+| `insert_il_instruction` | 在指定偏移位置插入 IL 指令 | `assembly_path`, `full_type_name`, `method_name`, `offset`, `instruction` |
+| `remove_il_instruction` | 删除指定偏移位置的 IL 指令 | `assembly_path`, `full_type_name`, `method_name`, `offset` |
+| `save_assembly` | 将修改后的程序集保存到新路径（不覆盖原文件） | `assembly_path`, `output_path` |
+
 ### 服务器管理
 
 | 工具名 | 功能 | 参数 |
@@ -87,7 +104,8 @@ BridgeDnSpyMCP Server (.NET Framework 4.8, C#)
   |     |-- AssemblyLoaderService      -- 程序集加载/卸载/枚举 (dnlib)
   |     |-- ReferenceFinderService     -- 引用查找（委托 dnSpy ScopedWhereUsedAnalyzer + PLINQ 并行扫描）
   |     |-- MetadataBrowserService     -- 类型/成员枚举与查询（聚合 AssemblyLoader + ReferenceFinder）
-  |     |-- DecompilationService       -- 基于 MEF 发现 IDecompiler 的反编译服务（C#/IL）
+  |     |-- DecompilationService       -- 反编译服务：AstBuilder(C#) + ReflectionDisassembler(IL)
+  |     |-- AssemblyEditorService      -- 程序集编辑（重命名、增删成员、IL 编辑、保存）(dnlib)
   |     |-- DnSpyUtils.cs              -- 公共工具方法（编译器生成判断、IL 操作数格式化）
   |
   +-- 数据模型
@@ -136,7 +154,7 @@ dotnet build
 
 - 仅暴露 `configure_dnspy_path` 一个工具
 - 通过该工具设置正确的 dnSpy 安装路径后，服务器会自动执行自检
-- 自检通过后，**重启 MCP 服务器**即可激活全部 19 个工具
+- 自检通过后，**重启 MCP 服务器**即可激活全部 31 个工具
 
 #### 正常模式
 
@@ -191,7 +209,6 @@ DnSpyPath=C:/dnSpy
 
 详见 [TODO.md](TODO.md)，主要包括：
 
-- **Phase 2**：程序集编辑能力（重命名、增删成员、IL 编辑、保存重签名）
 - **Phase 3**：高级分析（调用图、依赖分析、资源操作、混淆检测）
 - **Phase 4**：调试器（启动/附加调试、断点管理、变量查看，复杂度高）
 

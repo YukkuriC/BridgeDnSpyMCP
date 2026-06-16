@@ -16,10 +16,6 @@
 
 | 工具名 | 功能 | 对应 dnSpy API | 优先级 |
 |--------|------|---------------|--------|
-| `rename_type` | 重命名类型 | `TypeDef.Name` (dnlib) | P1 |
-| `rename_method` | 重命名方法 | `MethodDef.Name` (dnlib) | P1 |
-| `rename_field` | 重命名字段 | `FieldDef.Name` (dnlib) | P1 |
-| `rename_property` | 重命名属性 | `PropertyDef.Name` (dnlib) | P1 |
 | `change_type_visibility` | 修改类型的访问修饰符（public/internal等） | `TypeDef.Attributes` | P2 |
 | `change_method_visibility` | 修改方法的访问修饰符 | `MethodDef.Attributes` | P2 |
 | `add_custom_attribute` | 为成员添加自定义特性 | `CustomAttributes.Add()` | P2 |
@@ -29,17 +25,13 @@
 
 | 工具名 | 功能 | 对应 dnSpy API | 优先级 |
 |--------|------|---------------|--------|
-| `add_type` | 向程序集添加新类型定义 | `ModuleDef.Types.Add(TypeDef)` | P1 |
-| `add_method` | 向类型添加新方法 | `TypeDef.Methods.Add(MethodDef)` | P1 |
-| `add_field` | 向类型添加新字段 | `TypeDef.Fields.Add(FieldDef)` | P1 |
-| `remove_member` | 删除类型中的成员 | `.Remove()` | P1 |
+| `add_type` | 向程序集添加新类型定义 | `ModuleDef.Types.Add(TypeDef)` | P2 |
 | `add_assembly_reference` | 添加程序集引用 | `AssemblyRefUser` | P2 |
 
 ### 3. IL 编辑（高级）
 
 | 工具名 | 功能 | 对应 dnSpy API | 优先级 |
 |--------|------|---------------|--------|
-| `edit_method_il` | 替换/修改方法的 IL 指令序列 | `MethodBody.Instructions` 操作 | P1 |
 | `inject_method_call` | 在方法开头/结尾注入方法调用 | 插入 IL Instruction | P2 |
 | `nop_method_body` | 清空方法体（设为 throw 或 nop） | 替换 Instructions | P2 |
 
@@ -47,7 +39,6 @@
 
 | 工具名 | 功能 | 对应 dnSpy API | 优先级 |
 |--------|------|---------------|--------|
-| `save_assembly` | 将修改后的程序集保存到文件 | `ModuleWriter.Write()` | P1 |
 | `save_assembly_with_resign` | 保存并重新签名强命名程序集 | `ModuleWriter` + 强命名重签 | P2 |
 | `export_to_project` | 导出为 Visual Studio 解决方案/项目 | `ProjectExporter` | P2 |
 | `read_resource` | 读取程序集的嵌入式资源（图标/字符串表等） | `IResource` / `Resource.SetData()` | P2 |
@@ -102,9 +93,7 @@
 
 ### 待实现能力
 
-| 模块 | 说明 | 备注 |
-|------|------|------|
-| AssemblyEditor | 程序集编辑（IL 修改、方法体替换等） | 当前为只读分析工具 |
+（当前无未实现的 P1 能力。P2/P3 详见上方工具表。）
 
 ## 关键技术依赖
 
@@ -120,13 +109,7 @@
 
 ## 实施路线图建议
 
-### Phase 1 - MVP（反编译 + 浏览） -- 已完成，详见 [README.md](README.md)
-
-### Phase 2 - 编辑能力
-- [ ] 实现 `rename_*` 系列 -- 成员重命名
-- [ ] 实现 `add_*` / `remove_member` -- 结构增删
-- [ ] 实现 `edit_method_il` -- IL 编辑
-- [ ] 实现 `save_assembly` -- 修改后保存
+### Phase 1 - MVP（反编译 + 浏览 + 编辑） -- 已完成，详见 [README.md](README.md)
 
 ### Phase 3 - 高级分析与扩展
 - [ ] 实现 `read_resource` / `replace_resource` -- 资源操作

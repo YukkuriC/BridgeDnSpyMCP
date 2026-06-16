@@ -78,6 +78,7 @@
     <Compile Include="Services\ReferenceFinderService.cs" />
     <Compile Include="Services\MetadataBrowserService.cs" />
     <Compile Include="Services\DecompilationService.cs" />
+    <Compile Include="Services\AssemblyEditorService.cs" />
     <Compile Include="Server\Protocol\McpTypes.cs" />
     <Compile Include="Server\McpToolRegistry.cs" />
     <Compile Include="Server\Modules\McpToolRegistry.Setup.cs" />
@@ -87,6 +88,7 @@
     <Compile Include="Server\Modules\McpToolRegistry.Members.cs" />
     <Compile Include="Server\Modules\McpToolRegistry.MethodDetail.cs" />
     <Compile Include="Server\Modules\McpToolRegistry.Decompilation.cs" />
+    <Compile Include="Server\Modules\McpToolRegistry.Editor.cs" />
     <Compile Include="Server\Modules\McpToolRegistry.Server.cs" />
     <Compile Include="Server\McpServer.cs" />
     <Compile Include="Program.cs" />

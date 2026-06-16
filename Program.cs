@@ -37,6 +37,7 @@ namespace BDSM
                     var refFinder = new ReferenceFinderService(assemblyLoader);
                     var metadataBrowser = new MetadataBrowserService(assemblyLoader, refFinder);
                     var decompilation = new DecompilationService(assemblyLoader);
+                    var editor = new AssemblyEditorService(assemblyLoader);
 
                     // 先创建 server 以获取 ShutdownAction 回调引用
                     server = new();
@@ -45,6 +46,7 @@ namespace BDSM
                         assemblyLoader,
                         metadataBrowser,
                         decompilation,
+                        editor,
                         server.ShutdownAction
                     );
 

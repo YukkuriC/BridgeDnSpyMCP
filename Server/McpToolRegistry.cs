@@ -23,6 +23,7 @@ namespace BDSM.Server
         private readonly AssemblyLoaderService _assemblyLoader;
         private readonly MetadataBrowserService _metadataBrowser;
         private readonly DecompilationService _decompilation;
+        private readonly AssemblyEditorService _editor;
         private readonly JsonSerializerSettings _jsonSettings;
         private readonly bool _isSetupMode;
         private readonly Action _onShutdown;
@@ -37,11 +38,13 @@ namespace BDSM.Server
             AssemblyLoaderService assemblyLoader,
             MetadataBrowserService metadataBrowser,
             DecompilationService decompilation,
+            AssemblyEditorService editor,
             Action onShutdown = null)
         {
             _assemblyLoader = assemblyLoader;
             _metadataBrowser = metadataBrowser;
             _decompilation = decompilation;
+            _editor = editor;
             _isSetupMode = false;
             _onShutdown = onShutdown;
             _jsonSettings = new JsonSerializerSettings
@@ -89,6 +92,7 @@ namespace BDSM.Server
             RegisterMemberTools(allTools);
             RegisterMethodDetailTools(allTools);
             RegisterDecompilationTools(allTools);
+            RegisterEditorTools(allTools);
             RegisterServerTools(allTools);
             return new ListToolsResult { Tools = allTools };
         }

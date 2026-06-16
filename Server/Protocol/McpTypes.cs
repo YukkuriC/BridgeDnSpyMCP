@@ -210,6 +210,9 @@ namespace BDSM.Server.Protocol
 
         [JsonProperty("enum")]
         public List<string> EnumValues { get; set; }
+
+        [JsonProperty("items")]
+        public PropertySchema Items { get; set; }
     }
 
     #endregion
