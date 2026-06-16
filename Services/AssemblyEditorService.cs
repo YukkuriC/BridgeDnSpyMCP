@@ -166,82 +166,225 @@ namespace BDSM.Services
         // ---- IL 编辑操作 ----
 
         /// <summary>
-        /// 替换方法的全部 IL 指令。
+        /// 替换方法的 IL 指令。
+        /// - 不提供 start_offset / end_offset：替换整个方法体
+        /// - 仅提供 start_offset：从该偏移处开始到方法末尾进行替换
+        /// - 同时提供 start_offset + end_offset：替换 [start_offset, end_offset] 区间内的指令
         /// instructions 格式: 每行一条指令 "OpCode Operand"，如 "ldstr Hello World" 或 "ret"
         /// </summary>
-        public object EditMethodIL(string assemblyPath, string fullTypeName, string methodName, List<string> instructions)
+        public object EditMethodIL(string assemblyPath, string fullTypeName, string methodName, List<string> instructions, int startOffset, int endOffset)
         {
             var method = RequireMethod(assemblyPath, fullTypeName, methodName);
 
             if (!method.HasBody)
                 throw new InvalidOperationException("Method has no body (abstract/external/PInvoke).");
 
+            var module = method.Module as ModuleDefMD;
             var body = method.Body;
-            body.Instructions.Clear();
-            body.ExceptionHandlers.Clear();
+            var instrList = body.Instructions;
 
+            bool hasStart = startOffset >= 0;
+            bool hasEnd = endOffset >= 0;
+
+            int startIdx = 0;
+            int endIdx = instrList.Count;
+
+            if (hasStart)
+            {
+                startIdx = FindInsertIndex(instrList, startOffset);
+                if (startIdx >= instrList.Count && instrList.Count > 0)
+                    throw new NotFoundException(string.Format("No instruction at or after start_offset {0}.", startOffset));
+            }
+
+            if (hasEnd)
+            {
+                endIdx = FindInsertIndex(instrList, endOffset);
+                if (endIdx <= startIdx)
+                    throw new ArgumentException(string.Format("end_offset ({0}) must be greater than start_offset ({1}).", endOffset, startOffset));
+            }
+
+            int removedCount = endIdx - startIdx;
+            bool fullReplace = !hasStart && !hasEnd;
+
+            if (fullReplace)
+            {
+                instrList.Clear();
+                body.ExceptionHandlers.Clear();
+            }
+            else
+            {
+                for (int i = endIdx - 1; i >= startIdx; i--)
+                    instrList.RemoveAt(i);
+            }
+
+            var parsed = new List<Instruction>();
             foreach (var line in instructions)
             {
                 var trimmed = line.Trim();
                 if (string.IsNullOrEmpty(trimmed)) continue;
 
-                var instr = ParseInstruction(method.Module as ModuleDefMD, trimmed);
+                var instr = ParseInstruction(module, trimmed);
                 if (instr != null)
-                    body.Instructions.Add(instr);
+                    parsed.Add(instr);
             }
 
+            for (int i = parsed.Count - 1; i >= 0; i--)
+                instrList.Insert(startIdx, parsed[i]);
+
+            var range = fullReplace
+                ? "full body"
+                : hasEnd
+                    ? string.Format("[{0}, {1})", startOffset, endOffset)
+                    : string.Format("[{0}, end)", startOffset);
+
             return new
             {
                 success = true,
-                message = string.Format("IL updated for '{0}': {1} instruction(s)", methodName, body.Instructions.Count),
-                instructionCount = body.Instructions.Count
+                message = string.Format("IL updated for '{0}' at range {1}: replaced {2} instruction(s) with {3} instruction(s)",
+                    methodName, range, removedCount, parsed.Count),
+                range = range,
+                removedCount = removedCount,
+                insertedCount = parsed.Count,
+                instructionCount = instrList.Count
             };
         }
 
         /// <summary>
-        /// 在指定偏移位置插入 IL 指令。
+        /// 在指定偏移位置插入 IL 指令（支持批量/单条）。
+        /// - instructionText 不为 null：单条插入
+        /// - instructionList 不为空：批量插入（在 offset 处按顺序插入全部指令）
         /// </summary>
-        public object InsertILInstruction(string assemblyPath, string fullTypeName, string methodName, int offset, string instructionText)
+        public object InsertILInstruction(string assemblyPath, string fullTypeName, string methodName, int offset, string instructionText, List<string> instructionList)
         {
             var method = RequireMethod(assemblyPath, fullTypeName, methodName);
 
             if (!method.HasBody)
                 throw new InvalidOperationException("Method has no body.");
 
-            var instr = ParseInstruction(method.Module as ModuleDefMD, instructionText.Trim());
-            if (instr == null)
-                throw new ArgumentException("Failed to parse instruction: " + instructionText);
+            var module = method.Module as ModuleDefMD;
+            var instrList = method.Body.Instructions;
 
-            var idx = FindInsertIndex(method.Body.Instructions, offset);
-            method.Body.Instructions.Insert(idx, instr);
+            var toInsert = new List<Instruction>();
+            if (instructionList != null && instructionList.Count > 0)
+            {
+                foreach (var line in instructionList)
+                {
+                    var trimmed = line.Trim();
+                    if (string.IsNullOrEmpty(trimmed)) continue;
+
+                    var instr = ParseInstruction(module, trimmed);
+                    if (instr == null)
+                        throw new ArgumentException("Failed to parse instruction: " + trimmed);
+                    toInsert.Add(instr);
+                }
+            }
+            else if (instructionText != null)
+            {
+                var trimmed = instructionText.Trim();
+                var instr = ParseInstruction(module, trimmed);
+                if (instr == null)
+                    throw new ArgumentException("Failed to parse instruction: " + instructionText);
+                toInsert.Add(instr);
+            }
+            else
+            {
+                throw new ArgumentException("Either 'instruction' or 'instructions' must be provided.");
+            }
+
+            var idx = FindInsertIndex(instrList, offset);
+            for (int i = toInsert.Count - 1; i >= 0; i--)
+                instrList.Insert(idx, toInsert[i]);
+
+            var displayText = toInsert.Count == 1
+                ? toInsert[0].OpCode.Name
+                : string.Format("{0} instructions", toInsert.Count);
 
             return new
             {
                 success = true,
-                message = string.Format("Instruction inserted at offset {0}: {1}", offset, instructionText.Trim()),
-                insertIndex = idx
+                message = string.Format("Inserted {0} at offset {1}: {2}", toInsert.Count, offset, displayText),
+                insertIndex = idx,
+                insertedCount = toInsert.Count
             };
         }
 
         /// <summary>
-        /// 删除指定偏移位置的 IL 指令。
+        /// 删除 IL 指令（支持范围/批量/单条）。
+        /// - 提供 end_offset（end_offset >= 0）：删除 [offset, end_offset) 范围内的所有指令
+        /// - 提供 offsetList：删除多个偏移位置的指令
+        /// - 其他情况：删除 offset 处的单条指令
         /// </summary>
-        public object RemoveILInstruction(string assemblyPath, string fullTypeName, string methodName, int offset)
+        public object RemoveILInstruction(string assemblyPath, string fullTypeName, string methodName, int offset, int endOffset, List<int> offsetList)
         {
             var method = RequireMethod(assemblyPath, fullTypeName, methodName);
 
             if (!method.HasBody)
                 throw new InvalidOperationException("Method has no body.");
 
-            var instr = method.Body.Instructions.FirstOrDefault(i => i.Offset == offset);
-            if (instr == null)
+            var instrList = method.Body.Instructions;
+            int removedCount = 0;
+
+            if (endOffset >= 0)
+            {
+                if (endOffset <= offset)
+                    throw new ArgumentException("end_offset must be greater than offset.");
+
+                int startIdx = FindInsertIndex(instrList, offset);
+                int endIdx = FindInsertIndex(instrList, endOffset);
+
+                if (startIdx >= instrList.Count)
+                    throw new NotFoundException(string.Format("No instruction at or after offset {0}.", offset));
+                if (endIdx <= startIdx)
+                    throw new NotFoundException(string.Format("No instruction in range [{0}, {1}).", offset, endOffset));
+
+                removedCount = endIdx - startIdx;
+                for (int i = endIdx - 1; i >= startIdx; i--)
+                    instrList.RemoveAt(i);
+
+                return new
+                {
+                    success = true,
+                    message = string.Format("Removed {0} instruction(s) in range [{1}, {2})", removedCount, offset, endOffset),
+                    range = string.Format("[{0}, {1})", offset, endOffset),
+                    removedCount = removedCount
+                };
+            }
+
+            if (offsetList != null && offsetList.Count > 0)
+            {
+                var indices = new List<int>();
+                foreach (var off in offsetList)
+                {
+                    var instr = instrList.FirstOrDefault(i => i.Offset == off);
+                    if (instr == null)
+                        throw new NotFoundException(string.Format("No instruction at offset {0}.", off));
+                    indices.Add(instrList.IndexOf(instr));
+                }
+
+                indices.Sort();
+                for (int i = indices.Count - 1; i >= 0; i--)
+                    instrList.RemoveAt(indices[i]);
+
+                removedCount = indices.Count;
+                return new
+                {
+                    success = true,
+                    message = string.Format("Removed {0} instruction(s) at specified offsets", removedCount),
+                    offsets = offsetList,
+                    removedCount = removedCount
+                };
+            }
+
+            var single = instrList.FirstOrDefault(i => i.Offset == offset);
+            if (single == null)
                 throw new NotFoundException(string.Format("No instruction at offset {0}.", offset));
 
-            method.Body.Instructions.Remove(instr);
+            instrList.Remove(single);
             return new
             {
                 success = true,
-                message = string.Format("Instruction removed at offset {0} ({1})", offset, instr.OpCode.Name)
+                message = string.Format("Instruction removed at offset {0} ({1})", offset, single.OpCode.Name),
+                removedCount = 1
             };
         }
 

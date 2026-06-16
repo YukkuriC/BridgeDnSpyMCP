@@ -30,10 +30,12 @@
 
 ### 3. IL 编辑（高级）
 
+> 以下两个工具为语法糖，均可用已实现的 `edit_method_il` / `insert_il_instruction` 等基础工具等价实现，优先级可延后。
+
 | 工具名 | 功能 | 对应 dnSpy API | 优先级 |
 |--------|------|---------------|--------|
-| `inject_method_call` | 在方法开头/结尾注入方法调用 | 插入 IL Instruction | P2 |
-| `nop_method_body` | 清空方法体（设为 throw 或 nop） | 替换 Instructions | P2 |
+| `inject_method_call` | 在方法开头/结尾注入方法调用 | 插入 IL Instruction | P3（等价于 `insert_il_instruction` 批量插入） |
+| `nop_method_body` | 清空方法体（设为 throw 或 nop） | 替换 Instructions | P3（等价于 `edit_method_il` 整体替换） |
 
 ### 4. 保存与导出
 

@@ -65,9 +65,9 @@
 | `add_field` | 添加字段到指定类型 | `assembly_path`, `full_type_name`, `field_name`, `field_type`(可选), `is_static`(可选), `is_public`(可选) |
 | `add_method` | 添加空方法到指定类型（仅含 ret） | `assembly_path`, `full_type_name`, `method_name`, `param_count`(可选), `is_static`(可选), `is_public`(可选) |
 | `remove_member` | 删除成员（方法/字段/属性/事件） | `assembly_path`, `full_type_name`, `member_name`, `member_type`(可选, 默认 method) |
-| `edit_method_il` | 替换方法的全部 IL 指令，每行一条 "OpCode Operand" | `assembly_path`, `full_type_name`, `method_name`, `instructions`(字符串数组) |
-| `insert_il_instruction` | 在指定偏移位置插入 IL 指令 | `assembly_path`, `full_type_name`, `method_name`, `offset`, `instruction` |
-| `remove_il_instruction` | 删除指定偏移位置的 IL 指令 | `assembly_path`, `full_type_name`, `method_name`, `offset` |
+| `edit_method_il` | 替换方法的 IL 指令（支持范围）。不提供 start_offset/end_offset 替换整个方法体；仅 start_offset 从该偏移到末尾；两者都提供替换 [start_offset, end_offset) 区间。每行一条 "OpCode Operand" | `assembly_path`, `full_type_name`, `method_name`, `instructions`(字符串数组), `start_offset`(可选), `end_offset`(可选) |
+| `insert_il_instruction` | 在指定偏移位置插入 IL 指令（支持批量）。提供 instruction 单条；提供 instructions 数组批量插入 | `assembly_path`, `full_type_name`, `method_name`, `offset`, `instruction`(与 instructions 二选一), `instructions`(数组, 与 instruction 二选一) |
+| `remove_il_instruction` | 删除 IL 指令（支持范围/批量/单条）。offset+end_offset 删除 [offset, end_offset) 范围；offsets 数组删除多个指定偏移；仅 offset 删除单条 | `assembly_path`, `full_type_name`, `method_name`, `offset`(与 end_offset/offsets 配合时可选), `end_offset`(可选), `offsets`(数组, 可选) |
 | `save_assembly` | 将修改后的程序集保存到新路径（不覆盖原文件） | `assembly_path`, `output_path` |
 
 ### 服务器管理

@@ -1,5 +1,6 @@
 // 生成于 GLM-5V-Turbo
 
+using System;
 using System.Collections.Generic;
 using BDSM.Services;
 using BDSM.Server.Protocol;
@@ -9,6 +10,8 @@ namespace BDSM.Server
     /// <summary>程序集编辑模块 -- rename / add / remove / edit_il / save</summary>
     public partial class McpToolRegistry
     {
+        private const string DnlibOffsetNote = "注：dnlib 在写入 PE 文件之前不会重新计算 Instruction.Offset，因此 get_method_il 对新插入/修改过的指令可能显示 offset=0，这是正常现象；若需要真实偏移，请先通过 save_assembly 保存再重新加载。";
+
         internal void RegisterEditorTools(List<Tool> tools)
         {
             // ---- 重命名工具 ----
@@ -107,38 +110,43 @@ namespace BDSM.Server
 
             // ---- IL 编辑工具 ----
             tools.Add(MakeTool("edit_method_il",
-                "替换方法的全部 IL 指令。每行格式: \"OpCode Operand\" 或仅 \"OpCode\"。",
+                "替换方法的 IL 指令（支持范围）。不提供 start_offset/end_offset 则替换整个方法体；仅提供 start_offset 则从该偏移到方法末尾；同时提供两者则替换 [start_offset, end_offset) 区间。每行格式: \"OpCode Operand\" 或仅 \"OpCode\"。" + DnlibOffsetNote,
                 new Dictionary<string, PropertySchema>
                 {
                     {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
                     {"method_name", new PropertySchema{ Type="string", Description="方法名"}},
-                    {"instructions", new PropertySchema{ Type="array", Items=new PropertySchema{Type="string"}, Description="IL 指令列表，如 [\"ldstr Hello\", \"ret\"]"}}
+                    {"instructions", new PropertySchema{ Type="array", Items=new PropertySchema{Type="string"}, Description="IL 指令列表，如 [\"ldstr Hello\", \"ret\"]"}},
+                    {"start_offset", new PropertySchema{ Type="integer", Description="替换范围的起始偏移量（可选，留空则从方法开头）"}},
+                    {"end_offset", new PropertySchema{ Type="integer", Description="替换范围的结束偏移量（可选，留空则到方法末尾）"}}
                 },
                 new List<string> {"assembly_path", "full_type_name", "method_name", "instructions"}));
 
             tools.Add(MakeTool("insert_il_instruction",
-                "在指定偏移位置插入一条 IL 指令。",
+                "在指定偏移位置插入一条或多条 IL 指令。提供 instruction 插入单条；提供 instructions 数组则批量插入。" + DnlibOffsetNote,
                 new Dictionary<string, PropertySchema>
                 {
                     {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
                     {"method_name", new PropertySchema{ Type="string", Description="方法名"}},
                     {"offset", new PropertySchema{ Type="integer", Description="插入位置的 IL 偏移量"}},
-                    {"instruction", new PropertySchema{ Type="string", Description="要插入的指令文本，如 \"nop\" 或 \"ldstr Hello\""}}
+                    {"instruction", new PropertySchema{ Type="string", Description="单条指令文本，如 \"nop\" 或 \"ldstr Hello\"（与 instructions 二选一）"}},
+                    {"instructions", new PropertySchema{ Type="array", Items=new PropertySchema{Type="string"}, Description="批量指令列表（与 instruction 二选一）"}}
                 },
-                new List<string> {"assembly_path", "full_type_name", "method_name", "offset", "instruction"}));
+                new List<string> {"assembly_path", "full_type_name", "method_name", "offset"}));
 
             tools.Add(MakeTool("remove_il_instruction",
-                "删除指定偏移位置的一条 IL 指令。",
+                "删除 IL 指令（支持范围/批量/单条）。提供 offset + end_offset 删除 [offset, end_offset) 范围；提供 offsets 数组删除多个指定偏移；仅提供 offset 删除单条指令。" + DnlibOffsetNote,
                 new Dictionary<string, PropertySchema>
                 {
                     {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
                     {"method_name", new PropertySchema{ Type="string", Description="方法名"}},
-                    {"offset", new PropertySchema{ Type="integer", Description="要删除的 IL 偏移量"}}
+                    {"offset", new PropertySchema{ Type="integer", Description="要删除的 IL 偏移量（或范围起点，与 end_offset/offsets 配合时可选）"}},
+                    {"end_offset", new PropertySchema{ Type="integer", Description="范围删除的结束偏移量（可选）"}},
+                    {"offsets", new PropertySchema{ Type="array", Items=new PropertySchema{Type="integer"}, Description="批量删除的偏移量数组（可选）"}}
                 },
-                new List<string> {"assembly_path", "full_type_name", "method_name", "offset"}));
+                new List<string> {"assembly_path", "full_type_name", "method_name"}));
 
             // ---- 保存工具 ----
             tools.Add(MakeTool("save_assembly",
@@ -262,30 +270,67 @@ namespace BDSM.Server
                 instructions.AddRange(str.Split('\n'));
             }
 
+            int startOffset = GetOptionalArg<int>(args, "start_offset");
+            int endOffset = GetOptionalArg<int>(args, "end_offset");
+            // -1 作为 sentinel，表示未提供
+            if (!args.ContainsKey("start_offset") || args["start_offset"] == null) startOffset = -1;
+            if (!args.ContainsKey("end_offset") || args["end_offset"] == null) endOffset = -1;
+
             return _editor.EditMethodIL(
                 GetRequiredArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"),
                 GetRequiredArg<string>(args, "method_name"),
-                instructions);
+                instructions,
+                startOffset,
+                endOffset);
         }
 
         private object HandleInsertILInstruction(Dictionary<string, object> args)
         {
-            return _editor.InsertILInstruction(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "method_name"),
-                GetRequiredArg<int>(args, "offset"),
-                GetRequiredArg<string>(args, "instruction"));
+            var assemblyPath = GetRequiredArg<string>(args, "assembly_path");
+            var fullTypeName = GetRequiredArg<string>(args, "full_type_name");
+            var methodName = GetRequiredArg<string>(args, "method_name");
+            var offset = GetRequiredArg<int>(args, "offset");
+            var instruction = GetOptionalArg<string>(args, "instruction");
+
+            List<string> instructionList = null;
+            var rawArr = GetOptionalArg<object>(args, "instructions");
+            if (rawArr is System.Collections.IList list && list.Count > 0)
+            {
+                instructionList = new List<string>();
+                foreach (var item in list)
+                    instructionList.Add(item.ToString());
+            }
+
+            return _editor.InsertILInstruction(assemblyPath, fullTypeName, methodName, offset, instruction, instructionList);
         }
 
         private object HandleRemoveILInstruction(Dictionary<string, object> args)
         {
-            return _editor.RemoveILInstruction(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "method_name"),
-                GetRequiredArg<int>(args, "offset"));
+            var assemblyPath = GetRequiredArg<string>(args, "assembly_path");
+            var fullTypeName = GetRequiredArg<string>(args, "full_type_name");
+            var methodName = GetRequiredArg<string>(args, "method_name");
+
+            bool hasOffset = args.ContainsKey("offset") && args["offset"] != null;
+            int offset = hasOffset ? ConvertValue<int>(args["offset"]) : -1;
+
+            int endOffset = -1;
+            if (args.ContainsKey("end_offset") && args["end_offset"] != null)
+                endOffset = ConvertValue<int>(args["end_offset"]);
+
+            List<int> offsetList = null;
+            var rawArr = GetOptionalArg<object>(args, "offsets");
+            if (rawArr is System.Collections.IList list && list.Count > 0)
+            {
+                offsetList = new List<int>();
+                foreach (var item in list)
+                    offsetList.Add(ConvertValue<int>(item));
+            }
+
+            if (!hasOffset && endOffset < 0 && (offsetList == null || offsetList.Count == 0))
+                throw new ArgumentException("At least one of 'offset', 'end_offset' or 'offsets' must be provided.");
+
+            return _editor.RemoveILInstruction(assemblyPath, fullTypeName, methodName, offset, endOffset, offsetList);
         }
 
         private object HandleSaveAssembly(Dictionary<string, object> args)
