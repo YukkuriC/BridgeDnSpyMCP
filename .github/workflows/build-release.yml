@@ -1,0 +1,84 @@
+# 生成于 GLM-5.2
+
+name: Build Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dnspy_version:
+        description: 'dnSpyEx release tag (e.g. v6.5.1). Leave empty for latest.'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET Framework 4.8
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Download and extract dnSpyEx
+        shell: pwsh
+        run: |
+          $tag = '${{ inputs.dnspy_version }}'.Trim()
+          if ([string]::IsNullOrEmpty($tag)) {
+            $url = 'https://github.com/dnSpyEx/dnSpy/releases/latest/download/dnSpy-net-win64.zip'
+          } else {
+            $url = "https://github.com/dnSpyEx/dnSpy/releases/download/$tag/dnSpy-net-win64.zip"
+          }
+          Write-Host "Downloading dnSpyEx from: $url"
+          Invoke-WebRequest -Uri $url -OutFile dnSpy.zip -UseBasicParsing
+          Expand-Archive -Path dnSpy.zip -DestinationPath dnSpy -Force
+          $dnspyRoot = (Resolve-Path 'dnSpy').Path
+          Write-Host "dnSpy root: $dnspyRoot"
+          Write-Host "--- dnSpy root listing ---"
+          Get-ChildItem $dnspyRoot | Select-Object Name
+          Write-Host "--- dnSpy\bin listing (first 10) ---"
+          if (Test-Path "$dnspyRoot\bin") {
+            Get-ChildItem "$dnspyRoot\bin" | Select-Object -First 10 Name
+          } else {
+            Write-Host "WARNING: dnSpy\bin not found!"
+          }
+
+      - name: Generate path.props
+        shell: pwsh
+        run: |
+          $dnspyRoot = (Resolve-Path 'dnSpy').Path
+          # 使用正斜杠以兼容 MSBuild XML
+          $dnspyPath = $dnspyRoot -replace '\\', '/'
+          Write-Host "DnSpyPath = $dnspyPath"
+          $content = "<Project>`n  <PropertyGroup>`n    <DnSpyPath>$dnspyPath</DnSpyPath>`n  </PropertyGroup>`n</Project>"
+          $content | Out-File -FilePath path.props -Encoding utf8
+          Write-Host "--- path.props ---"
+          Get-Content path.props
+
+      - name: Build (Release)
+        run: msbuild BridgeDnSpyMCP.csproj -p:Configuration=Release
+
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          $out = 'bin\Release'
+          if (-not (Test-Path $out)) {
+            Write-Host "ERROR: $out not found"
+            exit 1
+          }
+          Write-Host "--- $out contents ---"
+          Get-ChildItem $out | Select-Object Name, Length
+          $exe = Join-Path $out 'BridgeDnSpyMCP.exe'
+          if (-not (Test-Path $exe)) {
+            Write-Host "ERROR: BridgeDnSpyMCP.exe not found in $out"
+            exit 1
+          }
+          Write-Host "OK: BridgeDnSpyMCP.exe found"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BridgeDnSpyMCP-release-${{ github.run_number }}
+          path: bin\Release\
+          if-no-files-found: error
