@@ -26,9 +26,9 @@ jobs:
         run: |
           $tag = '${{ inputs.dnspy_version }}'.Trim()
           if ([string]::IsNullOrEmpty($tag)) {
-            $url = 'https://github.com/dnSpyEx/dnSpy/releases/latest/download/dnSpy-net-win64.zip'
+            $url = 'https://github.com/dnSpyEx/dnSpy/releases/latest/download/dnSpy-netframework.zip'
           } else {
-            $url = "https://github.com/dnSpyEx/dnSpy/releases/download/$tag/dnSpy-net-win64.zip"
+            $url = "https://github.com/dnSpyEx/dnSpy/releases/download/$tag/dnSpy-netframework.zip"
           }
           Write-Host "Downloading dnSpyEx from: $url"
           Invoke-WebRequest -Uri $url -OutFile dnSpy.zip -UseBasicParsing
