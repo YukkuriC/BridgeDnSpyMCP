@@ -63,8 +63,8 @@
       <Private>False</Private>
     </Reference>
 
-    <!-- dnSpy bin\ 下全部 DLL，编译期全量引用 -->
-    <Reference Include="$(DnSpyPath)\bin\*.dll">
+    <!-- dnSpy bin\ 下全部 DLL，排除与 .NET Framework 内置程序集重名的 System.* / mscorlib / netstandard -->
+    <Reference Include="$(DnSpyPath)\bin\*.dll" Exclude="$(DnSpyPath)\bin\{System.*,mscorlib.dll,netstandard.dll}">
       <Private>False</Private>
     </Reference>
   </ItemGroup>
