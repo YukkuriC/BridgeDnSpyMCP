@@ -1,6 +1,7 @@
 // 生成于 GLM-5V-Turbo
 
 using System;
+using BDSM;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -135,10 +136,7 @@ namespace BDSM.Services
 
 		private ModuleDefMD RequireModule(string path)
 		{
-			var mod = _loader.GetModule(path);
-			if (mod == null)
-				throw new InvalidOperationException("Assembly not loaded: " + path);
-			return mod;
+			return _loader.GetModule(path);
 		}
 
 		private static TypeDef ResolveType(ModuleDefMD module, string fullName)
@@ -147,14 +145,14 @@ namespace BDSM.Services
 			if (exact != null) return exact;
 			return module.Types.FirstOrDefault(t =>
 				t.FullName.Equals(fullName, StringComparison.OrdinalIgnoreCase))
-				?? throw new NotFoundException("Type '" + fullName + "' not found in assembly.");
+				?? throw new UserException("Type '" + fullName + "' not found in assembly.");
 		}
 
 		private static MethodDef ResolveMethod(TypeDef type, string name)
 		{
 			return type.Methods.FirstOrDefault(m =>
 				m.Name == name || m.FullName.EndsWith("." + name))
-				?? throw new NotFoundException("Method '" + name + "' not found in type " + type.FullName + ".");
+				?? throw new UserException("Method '" + name + "' not found in type " + type.FullName + ".");
 		}
 
 		private static bool IsCompilerGenerated(TypeDef t) => DnSpyUtils.IsCompilerGenerated(t);

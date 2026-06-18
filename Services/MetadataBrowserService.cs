@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
+using BDSM;
 using BDSM.Models;
 
 namespace BDSM.Services
@@ -317,11 +318,7 @@ namespace BDSM.Services
 
         private ModuleDefMD RequireModule(string assemblyPath)
         {
-            var module = _loader.GetModule(assemblyPath);
-            if (module == null)
-                throw new InvalidOperationException(
-                    "Assembly not loaded: " + assemblyPath + ". Call load_assembly first.");
-            return module;
+            return _loader.GetModule(assemblyPath);
         }
 
         private TypeDef RequireType(string assemblyPath, string fullTypeName)
@@ -329,7 +326,7 @@ namespace BDSM.Services
             var module = RequireModule(assemblyPath);
             var type = FindTypeByName(module, fullTypeName);
             if (type == null)
-                throw new NotFoundException("Type '" + fullTypeName + "' not found in assembly.");
+                throw new UserException("Type '" + fullTypeName + "' not found in assembly.");
             return type;
         }
 

@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using BDSM;
 using BDSM.Services;
 using BDSM.Server.Protocol;
 
@@ -328,7 +329,7 @@ namespace BDSM.Server
             }
 
             if (!hasOffset && endOffset < 0 && (offsetList == null || offsetList.Count == 0))
-                throw new ArgumentException("At least one of 'offset', 'end_offset' or 'offsets' must be provided.");
+                throw new UserException("At least one of 'offset', 'end_offset' or 'offsets' must be provided.");
 
             return _editor.RemoveILInstruction(assemblyPath, fullTypeName, methodName, offset, endOffset, offsetList);
         }

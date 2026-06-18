@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
+using BDSM;
 using BDSM.Services;
 using BDSM.Server.Protocol;
 
@@ -112,7 +113,7 @@ namespace BDSM.Server
                 {
                     handled = DispatchSetup(toolName, arguments, out result);
                     if (!handled)
-                        throw new NotSupportedException(
+                        throw new UserException(
                             "Unknown tool: " + toolName +
                             ". Currently in setup mode. Use 'configure_dnspy_path' to configure dnSpy first.");
                 }
@@ -120,13 +121,21 @@ namespace BDSM.Server
                 {
                     handled = _dispatchers.Any(d => d(toolName, arguments, out result));
                     if (!handled)
-                        throw new NotSupportedException("Unknown tool: " + toolName);
+                        throw new UserException("Unknown tool: " + toolName);
                 }
 
                 return new CallToolResult
                 {
                     Content = new List<ContentBase> { new TextContent(Serialize(result)) },
                     IsError = false
+                };
+            }
+            catch (UserException userEx)
+            {
+                return new CallToolResult
+                {
+                    Content = new List<ContentBase> { new TextContent(userEx.Message) },
+                    IsError = true
                 };
             }
             catch (Exception ex)
@@ -160,7 +169,7 @@ namespace BDSM.Server
         {
             object value;
             if (args == null || !args.TryGetValue(key, out value))
-                throw new ArgumentException("Missing required argument: '" + key + "'");
+                throw new UserException("Missing required argument: '" + key + "'");
             return ConvertValue<T>(value);
         }
 

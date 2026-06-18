@@ -70,6 +70,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="UserException.cs" />
     <Compile Include="ConfigManager.cs" />
     <Compile Include="DnSpyDependencyResolver.cs" />
     <Compile Include="Models\Models.cs" />

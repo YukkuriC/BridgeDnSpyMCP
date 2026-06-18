@@ -1,6 +1,7 @@
 // 生成于 GLM-5V-Turbo
 
 using System;
+using BDSM;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -159,7 +160,7 @@ namespace BDSM.Services
                     break;
             }
 
-            throw new NotFoundException(string.Format("{0} '{1}' not found in type '{2}'.", 
+            throw new UserException(string.Format("{0} '{1}' not found in type '{2}'.", 
                 Capitalize(memberType), memberName, fullTypeName));
         }
 
@@ -177,7 +178,7 @@ namespace BDSM.Services
             var method = RequireMethod(assemblyPath, fullTypeName, methodName);
 
             if (!method.HasBody)
-                throw new InvalidOperationException("Method has no body (abstract/external/PInvoke).");
+                throw new UserException("Method has no body (abstract/external/PInvoke).");
 
             var module = method.Module as ModuleDefMD;
             var body = method.Body;
@@ -193,14 +194,14 @@ namespace BDSM.Services
             {
                 startIdx = FindInsertIndex(instrList, startOffset);
                 if (startIdx >= instrList.Count && instrList.Count > 0)
-                    throw new NotFoundException(string.Format("No instruction at or after start_offset {0}.", startOffset));
+                    throw new UserException(string.Format("No instruction at or after start_offset {0}.", startOffset));
             }
 
             if (hasEnd)
             {
                 endIdx = FindInsertIndex(instrList, endOffset);
                 if (endIdx <= startIdx)
-                    throw new ArgumentException(string.Format("end_offset ({0}) must be greater than start_offset ({1}).", endOffset, startOffset));
+                    throw new UserException(string.Format("end_offset ({0}) must be greater than start_offset ({1}).", endOffset, startOffset));
             }
 
             int removedCount = endIdx - startIdx;
@@ -259,7 +260,7 @@ namespace BDSM.Services
             var method = RequireMethod(assemblyPath, fullTypeName, methodName);
 
             if (!method.HasBody)
-                throw new InvalidOperationException("Method has no body.");
+                throw new UserException("Method has no body.");
 
             var module = method.Module as ModuleDefMD;
             var instrList = method.Body.Instructions;
@@ -288,7 +289,7 @@ namespace BDSM.Services
             }
             else
             {
-                throw new ArgumentException("Either 'instruction' or 'instructions' must be provided.");
+                throw new UserException("Either 'instruction' or 'instructions' must be provided.");
             }
 
             var idx = FindInsertIndex(instrList, offset);
@@ -319,7 +320,7 @@ namespace BDSM.Services
             var method = RequireMethod(assemblyPath, fullTypeName, methodName);
 
             if (!method.HasBody)
-                throw new InvalidOperationException("Method has no body.");
+                throw new UserException("Method has no body.");
 
             var instrList = method.Body.Instructions;
             int removedCount = 0;
@@ -327,15 +328,15 @@ namespace BDSM.Services
             if (endOffset >= 0)
             {
                 if (endOffset <= offset)
-                    throw new ArgumentException("end_offset must be greater than offset.");
+                    throw new UserException("end_offset must be greater than offset.");
 
                 int startIdx = FindInsertIndex(instrList, offset);
                 int endIdx = FindInsertIndex(instrList, endOffset);
 
                 if (startIdx >= instrList.Count)
-                    throw new NotFoundException(string.Format("No instruction at or after offset {0}.", offset));
+                    throw new UserException(string.Format("No instruction at or after offset {0}.", offset));
                 if (endIdx <= startIdx)
-                    throw new NotFoundException(string.Format("No instruction in range [{0}, {1}).", offset, endOffset));
+                    throw new UserException(string.Format("No instruction in range [{0}, {1}).", offset, endOffset));
 
                 removedCount = endIdx - startIdx;
                 for (int i = endIdx - 1; i >= startIdx; i--)
@@ -357,7 +358,7 @@ namespace BDSM.Services
                 {
                     var instr = instrList.FirstOrDefault(i => i.Offset == off);
                     if (instr == null)
-                        throw new NotFoundException(string.Format("No instruction at offset {0}.", off));
+                        throw new UserException(string.Format("No instruction at offset {0}.", off));
                     indices.Add(instrList.IndexOf(instr));
                 }
 
@@ -377,7 +378,7 @@ namespace BDSM.Services
 
             var single = instrList.FirstOrDefault(i => i.Offset == offset);
             if (single == null)
-                throw new NotFoundException(string.Format("No instruction at offset {0}.", offset));
+                throw new UserException(string.Format("No instruction at offset {0}.", offset));
 
             instrList.Remove(single);
             return new
@@ -430,12 +431,12 @@ namespace BDSM.Services
                 var opCodeField = typeof(OpCodes).GetField(opCodeName,
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
                 if (opCodeField == null)
-                    throw new ArgumentException("Unknown opcode: " + opCodeName + " (original: " + parts[0] + ")");
+                    throw new UserException("Unknown opcode: " + opCodeName + " (original: " + parts[0] + ")");
                 opCode = (OpCode)opCodeField.GetValue(null);
             }
             catch (ArgumentException)
             {
-                throw new ArgumentException("Unknown opcode: " + opCodeName + " (original: " + parts[0] + ")");
+                throw new UserException("Unknown opcode: " + opCodeName + " (original: " + parts[0] + ")");
             }
 
             if (operandStr == null || (int)opCode.OperandType == 0)
@@ -506,11 +507,7 @@ namespace BDSM.Services
 
         private ModuleDefMD RequireModule(string assemblyPath)
         {
-            var module = _loader.GetModule(assemblyPath);
-            if (module == null)
-                throw new InvalidOperationException(
-                    "Assembly not loaded: " + assemblyPath + ". Call load_assembly first.");
-            return module;
+            return _loader.GetModule(assemblyPath);
         }
 
         private TypeDef RequireType(string assemblyPath, string fullTypeName)
@@ -518,7 +515,7 @@ namespace BDSM.Services
             var module = RequireModule(assemblyPath);
             var type = FindTypeByName(module, fullTypeName);
             if (type == null)
-                throw new NotFoundException("Type '" + fullTypeName + "' not found in assembly.");
+                throw new UserException("Type '" + fullTypeName + "' not found in assembly.");
             return type;
         }
 
@@ -527,7 +524,7 @@ namespace BDSM.Services
             var type = RequireType(assemblyPath, fullTypeName);
             var method = FindMethod(type, methodName);
             if (method == null)
-                throw new NotFoundException("Method '" + methodName + "' not found in type '" + fullTypeName + "'.");
+                throw new UserException("Method '" + methodName + "' not found in type '" + fullTypeName + "'.");
             return method;
         }
 
@@ -536,7 +533,7 @@ namespace BDSM.Services
             var type = RequireType(assemblyPath, fullTypeName);
             var field = FindField(type, fieldName);
             if (field == null)
-                throw new NotFoundException("Field '" + fieldName + "' not found in type '" + fullTypeName + "'.");
+                throw new UserException("Field '" + fieldName + "' not found in type '" + fullTypeName + "'.");
             return field;
         }
 
@@ -545,7 +542,7 @@ namespace BDSM.Services
             var type = RequireType(assemblyPath, fullTypeName);
             var prop = FindProperty(type, propertyName);
             if (prop == null)
-                throw new NotFoundException("Property '" + propertyName + "' not found in type '" + fullTypeName + "'.");
+                throw new UserException("Property '" + propertyName + "' not found in type '" + fullTypeName + "'.");
             return prop;
         }
 
@@ -554,7 +551,7 @@ namespace BDSM.Services
             var type = RequireType(assemblyPath, fullTypeName);
             var evt = FindEvent(type, eventName);
             if (evt == null)
-                throw new NotFoundException("Event '" + eventName + "' not found in type '" + fullTypeName + "'.");
+                throw new UserException("Event '" + eventName + "' not found in type '" + fullTypeName + "'.");
             return evt;
         }
 

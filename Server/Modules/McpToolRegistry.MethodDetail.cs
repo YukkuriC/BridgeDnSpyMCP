@@ -1,6 +1,7 @@
 // 生成于 GLM-5V-Turbo
 
 using System.Collections.Generic;
+using BDSM;
 using BDSM.Services;
 using BDSM.Server.Protocol;
 
@@ -49,7 +50,7 @@ namespace BDSM.Server
                 GetRequiredArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"),
                 GetRequiredArg<string>(args, "method_name"));
-            if (info == null) throw new Services.NotFoundException("Method not found.");
+            if (info == null) throw new UserException("Method not found.");
             return info;
         }
 
@@ -59,7 +60,7 @@ namespace BDSM.Server
                 GetRequiredArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"),
                 GetRequiredArg<string>(args, "method_name"));
-            if (il == null) throw new Services.NotFoundException("Method has no body or not found.");
+            if (il == null) throw new UserException("Method has no body or not found.");
             return il;
         }
     }

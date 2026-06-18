@@ -1,6 +1,7 @@
 // 生成于 GLM-5V-Turbo
 
 using System.Collections.Generic;
+using BDSM;
 using BDSM.Services;
 using BDSM.Server.Protocol;
 
@@ -84,7 +85,7 @@ namespace BDSM.Server
             var info = _metadataBrowser.GetTypeInfo(
                 GetRequiredArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"));
-            if (info == null) throw new Services.NotFoundException("Type not found.");
+            if (info == null) throw new UserException("Type not found.");
             return info;
         }
     }

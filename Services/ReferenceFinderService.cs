@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 using dnSpy.Contracts.Documents;
+using BDSM;
 using BDSM.Models;
 
 namespace BDSM.Services
@@ -155,9 +156,9 @@ namespace BDSM.Services
         public List<ReferenceInfo> FindReferences(string assemblyPath, string fullTypeName, string memberName)
         {
             var module = _loader.GetModule(assemblyPath)
-                       ?? throw new InvalidOperationException("Assembly not loaded: " + assemblyPath);
+                       ?? throw new UserException("Assembly not loaded: " + assemblyPath);
             var targetType = ResolveType(module, fullTypeName)
-                          ?? throw new NotFoundException("Type '" + fullTypeName + "' not found.");
+                          ?? throw new UserException("Type '" + fullTypeName + "' not found.");
 
             // 解析目标成员
             var targetMember = ResolveMember(targetType, memberName);
@@ -265,7 +266,7 @@ namespace BDSM.Services
             var evt = type.Events.FirstOrDefault(e => e.Name == memberName);
             if (evt != null) { return evt.AddMethod ?? evt.RemoveMethod ?? evt.InvokeMethod; }
 
-            throw new NotFoundException("Member '" + memberName + "' not found.");
+            throw new UserException("Member '" + memberName + "' not found.");
         }
 
         static TypeDef ResolveType(ModuleDefMD module, string fullTypeName) =>

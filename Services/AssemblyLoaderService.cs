@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using dnlib.DotNet;
+using BDSM;
 using BDSM.Models;
 
 namespace BDSM.Services
@@ -27,7 +28,7 @@ namespace BDSM.Services
         {
             var fullPath = Path.GetFullPath(path);
             if (!File.Exists(fullPath))
-                throw new FileNotFoundException("Assembly file not found: " + fullPath);
+                throw new UserException("Assembly file not found: " + fullPath);
 
             var module = _assemblies.GetOrAdd(fullPath, p => ModuleDefMD.Load(p));
             return ToAssemblyInfo(module);
@@ -63,12 +64,21 @@ namespace BDSM.Services
 
         /// <summary>
         /// 根据路径获取已加载的 ModuleDefMD 实例。
+        /// 路径非法或程序集未加载时，allowNull=false 抛出 UserException，allowNull=true 返回 null。
         /// </summary>
-        public ModuleDefMD GetModule(string path)
+        public ModuleDefMD GetModule(string path, bool allowNull = false)
         {
-            var fullPath = Path.GetFullPath(path);
+            if (string.IsNullOrWhiteSpace(path))
+                return allowNull ? null : throw new UserException("assembly_path must not be empty.");
+
+            string fullPath;
+            try { fullPath = Path.GetFullPath(path); }
+            catch (ArgumentException) { return allowNull ? null : throw new UserException("Invalid assembly_path: " + path); }
+
             ModuleDefMD module;
-            return _assemblies.TryGetValue(fullPath, out module) ? module : null;
+            if (!_assemblies.TryGetValue(fullPath, out module))
+                return allowNull ? null : throw new UserException("Assembly not loaded: " + path + ". Call load_assembly first.");
+            return module;
         }
 
         /// <summary>
@@ -76,7 +86,7 @@ namespace BDSM.Services
         /// </summary>
         public ModuleDefMD FindModule(string query)
         {
-            var exact = GetModule(query);
+            var exact = GetModule(query, allowNull: true);
             if (exact != null) return exact;
 
             var fileName = Path.GetFileName(query);
