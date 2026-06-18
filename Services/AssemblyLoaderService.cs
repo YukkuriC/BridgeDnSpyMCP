@@ -108,6 +108,82 @@ namespace BDSM.Services
             return null;
         }
 
+        // ===== 成员查找（统一入口） =====
+
+        public static TypeDef FindTypeByName(ModuleDefMD module, string fullTypeName)
+        {
+            var exact = module.Types.FirstOrDefault(t => t.FullName == fullTypeName);
+            if (exact != null) return exact;
+            return module.Types.FirstOrDefault(t =>
+                t.FullName.Equals(fullTypeName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public static MethodDef FindMethod(TypeDef type, string methodName)
+        {
+            return type.Methods.FirstOrDefault(m =>
+                m.Name == methodName || m.FullName.EndsWith("." + methodName));
+        }
+
+        public static FieldDef FindField(TypeDef type, string fieldName)
+        {
+            return type.Fields.FirstOrDefault(f => f.Name == fieldName);
+        }
+
+        public static PropertyDef FindProperty(TypeDef type, string propertyName)
+        {
+            return type.Properties.FirstOrDefault(p => p.Name == propertyName);
+        }
+
+        public static EventDef FindEvent(TypeDef type, string eventName)
+        {
+            return type.Events.FirstOrDefault(e => e.Name == eventName);
+        }
+
+        public TypeDef RequireType(string assemblyPath, string fullTypeName)
+        {
+            var module = GetModule(assemblyPath);
+            var type = FindTypeByName(module, fullTypeName);
+            if (type == null)
+                throw new UserException("Type '" + fullTypeName + "' not found in assembly.");
+            return type;
+        }
+
+        public MethodDef RequireMethod(string assemblyPath, string fullTypeName, string methodName)
+        {
+            var type = RequireType(assemblyPath, fullTypeName);
+            var method = FindMethod(type, methodName);
+            if (method == null)
+                throw new UserException("Method '" + methodName + "' not found in type '" + fullTypeName + "'.");
+            return method;
+        }
+
+        public FieldDef RequireField(string assemblyPath, string fullTypeName, string fieldName)
+        {
+            var type = RequireType(assemblyPath, fullTypeName);
+            var field = FindField(type, fieldName);
+            if (field == null)
+                throw new UserException("Field '" + fieldName + "' not found in type '" + fullTypeName + "'.");
+            return field;
+        }
+
+        public PropertyDef RequireProperty(string assemblyPath, string fullTypeName, string propertyName)
+        {
+            var type = RequireType(assemblyPath, fullTypeName);
+            var prop = FindProperty(type, propertyName);
+            if (prop == null)
+                throw new UserException("Property '" + propertyName + "' not found in type '" + fullTypeName + "'.");
+            return prop;
+        }
+
+        public EventDef RequireEvent(string assemblyPath, string fullTypeName, string eventName)
+        {
+            var type = RequireType(assemblyPath, fullTypeName);
+            var evt = FindEvent(type, eventName);
+            if (evt == null)
+                throw new UserException("Event '" + eventName + "' not found in type '" + fullTypeName + "'.");
+            return evt;
+        }
+
         private static AssemblyInfo ToAssemblyInfo(ModuleDefMD module)
         {
             var nonNestedTypes = module.Types.Where(t => !t.IsNested).ToList();

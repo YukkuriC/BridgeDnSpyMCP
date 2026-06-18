@@ -34,24 +34,24 @@ namespace BDSM.Services
 		/// <summary> 将指定类型反编译为 C# 源码文本 </summary>
 		public string DecompileType(string assemblyPath, string fullTypeName)
 		{
-			var module = RequireModule(assemblyPath);
-			var type = ResolveType(module, fullTypeName);
-			return DecompileTypeInternal(module, type);
+			var type = _loader.RequireType(assemblyPath, fullTypeName);
+			return DecompileTypeInternal(type.Module as ModuleDefMD, type);
 		}
 
 		/// <summary> 将单个方法反编译为 C# 源码文本 </summary>
 		public string DecompileMethod(string assemblyPath, string fullTypeName, string methodName)
 		{
-			var module = RequireModule(assemblyPath);
-			var type = ResolveType(module, fullTypeName);
-			var method = ResolveMethod(type, methodName);
-			return DecompileMethodInternal(module, type, method);
+			var type = _loader.RequireType(assemblyPath, fullTypeName);
+			var method = AssemblyLoaderService.FindMethod(type, methodName);
+			if (method == null)
+				throw new UserException("Method '" + methodName + "' not found in type '" + fullTypeName + "'.");
+			return DecompileMethodInternal(type.Module as ModuleDefMD, type, method);
 		}
 
 		/// <summary> 反编译整个程序集中所有类型的 C# 源码。返回字典 key=类型全名, value=C#代码 </summary>
 		public Dictionary<string, string> DecompileAssembly(string assemblyPath, string namespaceFilter = null)
 		{
-			var module = RequireModule(assemblyPath);
+			var module = _loader.GetModule(assemblyPath);
 			var result = new Dictionary<string, string>();
 
 			IEnumerable<TypeDef> types = module.Types;
@@ -69,9 +69,7 @@ namespace BDSM.Services
 		/// <summary> 将单个方法输出为 ILASM 格式的中间语言文本 </summary>
 		public string DecompileMethodToIL(string assemblyPath, string fullTypeName, string methodName)
 		{
-			var module = RequireModule(assemblyPath);
-			var type = ResolveType(module, fullTypeName);
-			var method = ResolveMethod(type, methodName);
+			var method = _loader.RequireMethod(assemblyPath, fullTypeName, methodName);
 			return DecompileToILInternal(method);
 		}
 
@@ -130,29 +128,6 @@ namespace BDSM.Services
 				s.FullyQualifyAllTypes = true;
 			}
 			return s;
-		}
-
-		// ===== 模块/类型/方法解析 =====
-
-		private ModuleDefMD RequireModule(string path)
-		{
-			return _loader.GetModule(path);
-		}
-
-		private static TypeDef ResolveType(ModuleDefMD module, string fullName)
-		{
-			var exact = module.Types.FirstOrDefault(t => t.FullName == fullName);
-			if (exact != null) return exact;
-			return module.Types.FirstOrDefault(t =>
-				t.FullName.Equals(fullName, StringComparison.OrdinalIgnoreCase))
-				?? throw new UserException("Type '" + fullName + "' not found in assembly.");
-		}
-
-		private static MethodDef ResolveMethod(TypeDef type, string name)
-		{
-			return type.Methods.FirstOrDefault(m =>
-				m.Name == name || m.FullName.EndsWith("." + name))
-				?? throw new UserException("Method '" + name + "' not found in type " + type.FullName + ".");
 		}
 
 		private static bool IsCompilerGenerated(TypeDef t) => DnSpyUtils.IsCompilerGenerated(t);

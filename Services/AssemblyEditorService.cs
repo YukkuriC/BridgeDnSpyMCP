@@ -31,7 +31,7 @@ namespace BDSM.Services
         /// </summary>
         public object RenameType(string assemblyPath, string fullTypeName, string newName)
         {
-            var type = RequireType(assemblyPath, fullTypeName);
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
             var oldName = type.Name;
             type.Name = newName;
             return new { success = true, message = string.Format("Type renamed: '{0}' -> '{1}'", oldName, newName) };
@@ -42,7 +42,7 @@ namespace BDSM.Services
         /// </summary>
         public object RenameMethod(string assemblyPath, string fullTypeName, string methodName, string newName)
         {
-            var method = RequireMethod(assemblyPath, fullTypeName, methodName);
+            var method = _loader.RequireMethod(assemblyPath, fullTypeName, methodName);
             var oldName = method.Name;
             method.Name = newName;
             return new { success = true, message = string.Format("Method renamed: '{0}' -> '{1}'", oldName, newName) };
@@ -53,7 +53,7 @@ namespace BDSM.Services
         /// </summary>
         public object RenameField(string assemblyPath, string fullTypeName, string fieldName, string newName)
         {
-            var field = RequireField(assemblyPath, fullTypeName, fieldName);
+            var field = _loader.RequireField(assemblyPath, fullTypeName, fieldName);
             var oldName = field.Name;
             field.Name = newName;
             return new { success = true, message = string.Format("Field renamed: '{0}' -> '{1}'", oldName, newName) };
@@ -64,7 +64,7 @@ namespace BDSM.Services
         /// </summary>
         public object RenameProperty(string assemblyPath, string fullTypeName, string propertyName, string newName)
         {
-            var prop = RequireProperty(assemblyPath, fullTypeName, propertyName);
+            var prop = _loader.RequireProperty(assemblyPath, fullTypeName, propertyName);
             var oldName = prop.Name;
             prop.Name = newName;
             return new { success = true, message = string.Format("Property renamed: '{0}' -> '{1}'", oldName, newName) };
@@ -75,7 +75,7 @@ namespace BDSM.Services
         /// </summary>
         public object RenameEvent(string assemblyPath, string fullTypeName, string eventName, string newName)
         {
-            var evt = RequireEvent(assemblyPath, fullTypeName, eventName);
+            var evt = _loader.RequireEvent(assemblyPath, fullTypeName, eventName);
             var oldName = evt.Name;
             evt.Name = newName;
             return new { success = true, message = string.Format("Event renamed: '{0}' -> '{1}'", oldName, newName) };
@@ -88,7 +88,7 @@ namespace BDSM.Services
         /// </summary>
         public object AddField(string assemblyPath, string fullTypeName, string fieldName, string fieldType = null, bool isStatic = false, bool isPublic = true)
         {
-            var type = RequireType(assemblyPath, fullTypeName);
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
             var module = type.Module as ModuleDefMD;
 
             // 使用 Import 获取 String 类型签名
@@ -107,7 +107,7 @@ namespace BDSM.Services
         /// </summary>
         public object AddMethod(string assemblyPath, string fullTypeName, string methodName, int paramCount = 0, bool isStatic = false, bool isPublic = true, string returnType = null)
         {
-            var type = RequireType(assemblyPath, fullTypeName);
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
             var module = type.Module as ModuleDefMD;
 
             var method = new MethodDefUser(methodName, MethodSig.CreateStatic(module.Import(module.CorLibTypes.Void)),
@@ -131,30 +131,30 @@ namespace BDSM.Services
         /// </summary>
         public object RemoveMember(string assemblyPath, string fullTypeName, string memberName, string memberType = "method")
         {
-            var type = RequireType(assemblyPath, fullTypeName);
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
 
             switch (memberType.ToLowerInvariant())
             {
                 case "method":
-                    var method = FindMethod(type, memberName);
+                    var method = AssemblyLoaderService.FindMethod(type, memberName);
                     if (method != null && type.Methods.Remove(method))
                         return new { success = true, message = string.Format("Method removed: '{0}'", memberName) };
                     break;
 
                 case "field":
-                    var field = FindField(type, memberName);
+                    var field = AssemblyLoaderService.FindField(type, memberName);
                     if (field != null && type.Fields.Remove(field))
                         return new { success = true, message = string.Format("Field removed: '{0}'", memberName) };
                     break;
 
                 case "property":
-                    var prop = FindProperty(type, memberName);
+                    var prop = AssemblyLoaderService.FindProperty(type, memberName);
                     if (prop != null && type.Properties.Remove(prop))
                         return new { success = true, message = string.Format("Property removed: '{0}'", memberName) };
                     break;
 
                 case "event":
-                    var evt = FindEvent(type, memberName);
+                    var evt = AssemblyLoaderService.FindEvent(type, memberName);
                     if (evt != null && type.Events.Remove(evt))
                         return new { success = true, message = string.Format("Event removed: '{0}'", memberName) };
                     break;
@@ -175,7 +175,7 @@ namespace BDSM.Services
         /// </summary>
         public object EditMethodIL(string assemblyPath, string fullTypeName, string methodName, List<string> instructions, int startOffset, int endOffset)
         {
-            var method = RequireMethod(assemblyPath, fullTypeName, methodName);
+            var method = _loader.RequireMethod(assemblyPath, fullTypeName, methodName);
 
             if (!method.HasBody)
                 throw new UserException("Method has no body (abstract/external/PInvoke).");
@@ -257,7 +257,7 @@ namespace BDSM.Services
         /// </summary>
         public object InsertILInstruction(string assemblyPath, string fullTypeName, string methodName, int offset, string instructionText, List<string> instructionList)
         {
-            var method = RequireMethod(assemblyPath, fullTypeName, methodName);
+            var method = _loader.RequireMethod(assemblyPath, fullTypeName, methodName);
 
             if (!method.HasBody)
                 throw new UserException("Method has no body.");
@@ -317,7 +317,7 @@ namespace BDSM.Services
         /// </summary>
         public object RemoveILInstruction(string assemblyPath, string fullTypeName, string methodName, int offset, int endOffset, List<int> offsetList)
         {
-            var method = RequireMethod(assemblyPath, fullTypeName, methodName);
+            var method = _loader.RequireMethod(assemblyPath, fullTypeName, methodName);
 
             if (!method.HasBody)
                 throw new UserException("Method has no body.");
@@ -396,7 +396,7 @@ namespace BDSM.Services
         /// </summary>
         public object SaveAssembly(string assemblyPath, string outputPath)
         {
-            var module = RequireModule(assemblyPath);
+            var module = _loader.GetModule(assemblyPath);
 
             var fullPath = Path.GetFullPath(outputPath);
             var dir = Path.GetDirectoryName(fullPath);
@@ -503,85 +503,6 @@ namespace BDSM.Services
             var converted = name.Replace('.', '_');
             // 首字母大写，其余保持原样（dnlib 字段名是 PascalCase）
             return char.ToUpper(converted[0]) + converted.Substring(1);
-        }
-
-        private ModuleDefMD RequireModule(string assemblyPath)
-        {
-            return _loader.GetModule(assemblyPath);
-        }
-
-        private TypeDef RequireType(string assemblyPath, string fullTypeName)
-        {
-            var module = RequireModule(assemblyPath);
-            var type = FindTypeByName(module, fullTypeName);
-            if (type == null)
-                throw new UserException("Type '" + fullTypeName + "' not found in assembly.");
-            return type;
-        }
-
-        private MethodDef RequireMethod(string assemblyPath, string fullTypeName, string methodName)
-        {
-            var type = RequireType(assemblyPath, fullTypeName);
-            var method = FindMethod(type, methodName);
-            if (method == null)
-                throw new UserException("Method '" + methodName + "' not found in type '" + fullTypeName + "'.");
-            return method;
-        }
-
-        private FieldDef RequireField(string assemblyPath, string fullTypeName, string fieldName)
-        {
-            var type = RequireType(assemblyPath, fullTypeName);
-            var field = FindField(type, fieldName);
-            if (field == null)
-                throw new UserException("Field '" + fieldName + "' not found in type '" + fullTypeName + "'.");
-            return field;
-        }
-
-        private PropertyDef RequireProperty(string assemblyPath, string fullTypeName, string propertyName)
-        {
-            var type = RequireType(assemblyPath, fullTypeName);
-            var prop = FindProperty(type, propertyName);
-            if (prop == null)
-                throw new UserException("Property '" + propertyName + "' not found in type '" + fullTypeName + "'.");
-            return prop;
-        }
-
-        private EventDef RequireEvent(string assemblyPath, string fullTypeName, string eventName)
-        {
-            var type = RequireType(assemblyPath, fullTypeName);
-            var evt = FindEvent(type, eventName);
-            if (evt == null)
-                throw new UserException("Event '" + eventName + "' not found in type '" + fullTypeName + "'.");
-            return evt;
-        }
-
-        private static TypeDef FindTypeByName(ModuleDefMD module, string fullTypeName)
-        {
-            var exact = module.Types.FirstOrDefault(t => t.FullName == fullTypeName);
-            if (exact != null) return exact;
-            return module.Types.FirstOrDefault(t =>
-                t.FullName.Equals(fullTypeName, StringComparison.OrdinalIgnoreCase));
-        }
-
-        private static MethodDef FindMethod(TypeDef type, string methodName)
-        {
-            return type.Methods.FirstOrDefault(m =>
-                m.Name == methodName || m.FullName.EndsWith("." + methodName));
-        }
-
-        private static FieldDef FindField(TypeDef type, string fieldName)
-        {
-            return type.Fields.FirstOrDefault(f => f.Name == fieldName);
-        }
-
-        private static PropertyDef FindProperty(TypeDef type, string propertyName)
-        {
-            return type.Properties.FirstOrDefault(p => p.Name == propertyName);
-        }
-
-        private static EventDef FindEvent(TypeDef type, string eventName)
-        {
-            return type.Events.FirstOrDefault(e => e.Name == eventName);
         }
     }
 }

@@ -32,7 +32,7 @@ namespace BDSM.Services
         /// </summary>
         public List<TypeInfo> ListTypes(string assemblyPath, string namespaceFilter = null)
         {
-            var module = RequireModule(assemblyPath);
+            var module = _loader.GetModule(assemblyPath);
             return module.Types
                 .Where(t => !t.IsNested && !IsCompilerGenerated(t))
                 .Where(t => namespaceFilter == null || t.Namespace == namespaceFilter)
@@ -45,7 +45,7 @@ namespace BDSM.Services
         /// </summary>
         public List<NamespaceInfo> ListNamespaces(string assemblyPath)
         {
-            var module = RequireModule(assemblyPath);
+            var module = _loader.GetModule(assemblyPath);
             return module.Types
                 .Where(t => !t.IsNested)
                 .Select(t => t.Namespace)
@@ -64,7 +64,7 @@ namespace BDSM.Services
         /// </summary>
         public List<TypeInfo> FindType(string assemblyPath, string query)
         {
-            var module = RequireModule(assemblyPath);
+            var module = _loader.GetModule(assemblyPath);
             var lowerQuery = query.ToLowerInvariant();
 
             return module.Types
@@ -83,8 +83,8 @@ namespace BDSM.Services
         /// </summary>
         public TypeInfo GetTypeInfo(string assemblyPath, string fullTypeName)
         {
-            var module = RequireModule(assemblyPath);
-            var type = FindTypeByName(module, fullTypeName);
+            var module = _loader.GetModule(assemblyPath);
+            var type = AssemblyLoaderService.FindTypeByName(module, fullTypeName);
             if (type == null) return null;
             return ToTypeInfo(type);
         }
@@ -93,7 +93,7 @@ namespace BDSM.Services
 
         public List<MethodInfo> ListMethods(string assemblyPath, string fullTypeName)
         {
-            var type = RequireType(assemblyPath, fullTypeName);
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
             return type.Methods
                 .Where(m => !m.IsSpecialName || IsPropertyAccessor(m) || IsEventAccessor(m))
                 .Select(m => ToMethodInfo(m, type))
@@ -102,19 +102,19 @@ namespace BDSM.Services
 
         public List<FieldInfoData> ListFields(string assemblyPath, string fullTypeName)
         {
-            var type = RequireType(assemblyPath, fullTypeName);
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
             return type.Fields.Select(ToFieldInfo).ToList();
         }
 
         public List<PropertyInfoData> ListProperties(string assemblyPath, string fullTypeName)
         {
-            var type = RequireType(assemblyPath, fullTypeName);
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
             return type.Properties.Select(ToPropertyInfo).ToList();
         }
 
         public List<EventInfoData> ListEvents(string assemblyPath, string fullTypeName)
         {
-            var type = RequireType(assemblyPath, fullTypeName);
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
             return type.Events.Select(ToEventInfo).ToList();
         }
 
@@ -122,18 +122,16 @@ namespace BDSM.Services
 
         public MethodInfo GetMethodInfo(string assemblyPath, string fullTypeName, string methodName)
         {
-            var type = RequireType(assemblyPath, fullTypeName);
-            var method = type.Methods.FirstOrDefault(m =>
-                m.Name == methodName || m.FullName.EndsWith("." + methodName));
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
+            var method = AssemblyLoaderService.FindMethod(type, methodName);
             if (method == null) return null;
             return ToMethodInfo(method, type);
         }
 
         public List<InstructionInfo> GetMethodIL(string assemblyPath, string fullTypeName, string methodName)
         {
-            var type = RequireType(assemblyPath, fullTypeName);
-            var method = type.Methods.FirstOrDefault(m =>
-                m.Name == methodName || m.FullName.EndsWith("." + methodName));
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
+            var method = AssemblyLoaderService.FindMethod(type, methodName);
             if (method?.Body == null) return null;
 
             return method.Body.Instructions.Select(instr => new InstructionInfo
@@ -314,28 +312,6 @@ namespace BDSM.Services
             if (mask == FieldAttributes.FamORAssem) return "protected internal";
             if (mask == FieldAttributes.FamANDAssem) return "private protected";
             return "unknown";
-        }
-
-        private ModuleDefMD RequireModule(string assemblyPath)
-        {
-            return _loader.GetModule(assemblyPath);
-        }
-
-        private TypeDef RequireType(string assemblyPath, string fullTypeName)
-        {
-            var module = RequireModule(assemblyPath);
-            var type = FindTypeByName(module, fullTypeName);
-            if (type == null)
-                throw new UserException("Type '" + fullTypeName + "' not found in assembly.");
-            return type;
-        }
-
-        private static TypeDef FindTypeByName(ModuleDefMD module, string fullTypeName)
-        {
-            var exact = module.Types.FirstOrDefault(t => t.FullName == fullTypeName);
-            if (exact != null) return exact;
-            return module.Types.FirstOrDefault(t =>
-                t.FullName.Equals(fullTypeName, StringComparison.OrdinalIgnoreCase));
         }
     }
 
