@@ -160,4 +160,23 @@ namespace BDSM.Models
         public int Offset { get; set; }
         public string StringValue { get; set; }
     }
+
+    /// <summary>路径查询结果</summary>
+    public class PathQueryResult
+    {
+        /// <summary>是否完整匹配到路径终点（true=全部段消耗完毕且Results非空，false=路径中途断掉或无结果）</summary>
+        public bool Matched { get; set; }
+        /// <summary>候选列表（永不为null；Matched=true时非空，Matched=false时可能为空或含断点候选）</summary>
+        public List<PathQueryCandidate> Results { get; set; }
+        /// <summary>原始查询路径</summary>
+        public string ResolvedPath { get; set; }
+    }
+
+    /// <summary>路径查询候选</summary>
+    public class PathQueryCandidate
+    {
+        public string MatchKind { get; set; }           // "type" | "field" | "property" | "method" | "event"
+        public object Target { get; set; }              // 对应的数据模型
+        public string ResolvedAssemblyPath { get; set; }
+    }
 }

@@ -38,6 +38,7 @@ namespace BDSM
                     var metadataBrowser = new MetadataBrowserService(assemblyLoader, refFinder);
                     var decompilation = new DecompilationService(assemblyLoader);
                     var editor = new AssemblyEditorService(assemblyLoader);
+                    var pathQuery = new PathQueryService(assemblyLoader);
 
                     // 先创建 server 以获取 ShutdownAction 回调引用
                     server = new();
@@ -47,6 +48,7 @@ namespace BDSM
                         metadataBrowser,
                         decompilation,
                         editor,
+                        pathQuery,
                         server.ShutdownAction
                     );
 

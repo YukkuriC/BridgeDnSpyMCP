@@ -172,7 +172,7 @@ namespace BDSM.Services
                 or MethodSemanticsAttributes.Fire;
         }
 
-        private static TypeInfo ToTypeInfo(TypeDef type)
+        internal static TypeInfo ToTypeInfo(TypeDef type)
         {
             string kind;
             if (type.IsInterface) kind = "interface";
@@ -207,7 +207,7 @@ namespace BDSM.Services
             };
         }
 
-        private static MethodInfo ToMethodInfo(MethodDef method, TypeDef declaringType)
+        internal static MethodInfo ToMethodInfo(MethodDef method, TypeDef declaringType)
         {
             return new MethodInfo
             {
@@ -238,7 +238,7 @@ namespace BDSM.Services
             };
         }
 
-        private static FieldInfoData ToFieldInfo(FieldDef field)
+        internal static FieldInfoData ToFieldInfo(FieldDef field)
         {
             return new FieldInfoData
             {
@@ -254,7 +254,7 @@ namespace BDSM.Services
             };
         }
 
-        private static PropertyInfoData ToPropertyInfo(PropertyDef prop)
+        internal static PropertyInfoData ToPropertyInfo(PropertyDef prop)
         {
             return new PropertyInfoData
             {
@@ -267,7 +267,7 @@ namespace BDSM.Services
             };
         }
 
-        private static EventInfoData ToEventInfo(EventDef evt)
+        internal static EventInfoData ToEventInfo(EventDef evt)
         {
             return new EventInfoData
             {
@@ -278,7 +278,7 @@ namespace BDSM.Services
             };
         }
 
-        private static string GetTypeVisibility(TypeAttributes attrs)
+        internal static string GetTypeVisibility(TypeAttributes attrs)
         {
             var mask = attrs & TypeAttributes.VisibilityMask;
             if (mask == TypeAttributes.Public || mask == TypeAttributes.NestedPublic) return "public";
@@ -290,7 +290,7 @@ namespace BDSM.Services
             return "unknown";
         }
 
-        private static string GetMethodVisibility(MethodAttributes attrs)
+        internal static string GetMethodVisibility(MethodAttributes attrs)
         {
             var mask = attrs & MethodAttributes.MemberAccessMask;
             if (mask == MethodAttributes.Public) return "public";
@@ -302,7 +302,7 @@ namespace BDSM.Services
             return "unknown";
         }
 
-        private static string GetFieldVisibility(FieldAttributes attrs)
+        internal static string GetFieldVisibility(FieldAttributes attrs)
         {
             var mask = attrs & FieldAttributes.FieldAccessMask;
             if (mask == FieldAttributes.Public) return "public";

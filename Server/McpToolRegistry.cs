@@ -25,6 +25,7 @@ namespace BDSM.Server
         private readonly MetadataBrowserService _metadataBrowser;
         private readonly DecompilationService _decompilation;
         private readonly AssemblyEditorService _editor;
+        private readonly PathQueryService _pathQuery;
         private readonly JsonSerializerSettings _jsonSettings;
         private readonly bool _isSetupMode;
         private readonly Action _onShutdown;
@@ -40,12 +41,14 @@ namespace BDSM.Server
             MetadataBrowserService metadataBrowser,
             DecompilationService decompilation,
             AssemblyEditorService editor,
+            PathQueryService pathQuery,
             Action onShutdown = null)
         {
             _assemblyLoader = assemblyLoader;
             _metadataBrowser = metadataBrowser;
             _decompilation = decompilation;
             _editor = editor;
+            _pathQuery = pathQuery;
             _isSetupMode = false;
             _onShutdown = onShutdown;
             _jsonSettings = new JsonSerializerSettings
@@ -95,6 +98,7 @@ namespace BDSM.Server
             RegisterDecompilationTools(allTools);
             RegisterEditorTools(allTools);
             RegisterServerTools(allTools);
+            RegisterPathQueryTools(allTools);
             return new ListToolsResult { Tools = allTools };
         }
 
