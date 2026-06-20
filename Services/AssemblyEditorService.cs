@@ -2,6 +2,7 @@
 
 using System;
 using BDSM;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -19,6 +20,10 @@ namespace BDSM.Services
     public class AssemblyEditorService
     {
         private readonly AssemblyLoaderService _loader;
+
+        // OpCode 名称 -> 实例缓存。按需查找，首次访问时反射并缓存。
+        private static readonly ConcurrentDictionary<string, OpCode> _opCodeCache =
+            new ConcurrentDictionary<string, OpCode>(StringComparer.OrdinalIgnoreCase);
 
         public AssemblyEditorService(AssemblyLoaderService loader)
         {
@@ -469,19 +474,15 @@ namespace BDSM.Services
             var opCodeName = ToPascalCaseOpCode(parts[0]);
             var operandStr = parts.Length > 1 ? parts[1] : null;
 
-            OpCode opCode;
-            try
+            // dnlib OpCodes 使用 PascalCase 命名（如 Ldstr, Callvirt, Ldc_I4_S），按需反射并缓存
+            if (!_opCodeCache.TryGetValue(opCodeName, out var opCode))
             {
-                // dnlib OpCodes 使用 PascalCase 命名（如 Ldstr, Callvirt, Ldc_I4_S）
                 var opCodeField = typeof(OpCodes).GetField(opCodeName,
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
                 if (opCodeField == null)
                     throw new UserException("Unknown opcode: " + opCodeName + " (original: " + parts[0] + ")");
                 opCode = (OpCode)opCodeField.GetValue(null);
-            }
-            catch (ArgumentException)
-            {
-                throw new UserException("Unknown opcode: " + opCodeName + " (original: " + parts[0] + ")");
+                _opCodeCache[opCodeName] = opCode;
             }
 
             if (operandStr == null || (int)opCode.OperandType == 0)
