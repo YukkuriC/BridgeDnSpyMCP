@@ -38,6 +38,20 @@ namespace BDSM.Services
         }
 
         /// <summary>
+        /// 修改类型的命名空间。仅对非嵌套类型有效（嵌套类型 Namespace 恒为空）。
+        /// </summary>
+        public object RenameTypeNamespace(string assemblyPath, string fullTypeName, string newNamespace)
+        {
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
+            if (type.IsNested)
+                throw new UserException(string.Format("Type '{0}' is a nested type (declared inside '{1}'). Nested types cannot have a namespace. Use nesting operations instead.",
+                    fullTypeName, type.DeclaringType.FullName));
+            var oldNs = type.Namespace;
+            type.Namespace = newNamespace;
+            return new { success = true, message = string.Format("Type namespace changed: '{0}' -> '{1}' ({2})", oldNs, newNamespace, type.FullName) };
+        }
+
+        /// <summary>
         /// 重命名方法。
         /// </summary>
         public object RenameMethod(string assemblyPath, string fullTypeName, string methodName, string newName)

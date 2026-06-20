@@ -26,6 +26,16 @@ namespace BDSM.Server
                 },
                 new List<string> {"assembly_path", "full_type_name", "new_name"}));
 
+            tools.Add(MakeTool("rename_type_namespace",
+                "修改类型的命名空间。仅对非嵌套类型有效（嵌套类型 Namespace 恒为空）。",
+                new Dictionary<string, PropertySchema>
+                {
+                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
+                    {"new_namespace", new PropertySchema{ Type="string", Description="新的命名空间"}}
+                },
+                new List<string> {"assembly_path", "full_type_name", "new_namespace"}));
+
             tools.Add(MakeTool("rename_method",
                 "重命名指定方法。",
                 new Dictionary<string, PropertySchema>
@@ -167,6 +177,7 @@ namespace BDSM.Server
             switch (toolName)
             {
                 case "rename_type":         result = HandleRenameType(args); return true;
+                case "rename_type_namespace": result = HandleRenameTypeNamespace(args); return true;
                 case "rename_method":       result = HandleRenameMethod(args); return true;
                 case "rename_field":        result = HandleRenameField(args); return true;
                 case "rename_property":     result = HandleRenameProperty(args); return true;
@@ -188,6 +199,14 @@ namespace BDSM.Server
                 GetRequiredArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"),
                 GetRequiredArg<string>(args, "new_name"));
+        }
+
+        private object HandleRenameTypeNamespace(Dictionary<string, object> args)
+        {
+            return _editor.RenameTypeNamespace(
+                GetRequiredArg<string>(args, "assembly_path"),
+                GetRequiredArg<string>(args, "full_type_name"),
+                GetRequiredArg<string>(args, "new_namespace"));
         }
 
         private object HandleRenameMethod(Dictionary<string, object> args)

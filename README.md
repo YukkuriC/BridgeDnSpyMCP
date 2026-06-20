@@ -4,9 +4,7 @@
 
 基于 [dnSpyEx/dnSpy](https://github.com/dnSpyEx/dnSpy) 的 MCP (Model Context Protocol) 服务器，将 .NET 程序集反编译与分析能力暴露为 AI 可调用的工具接口。
 
-## 已实现功能（Phase 1 + 引用查找 + 编辑能力）
-
-共 **32 个工具**（正常模式 31 个 + Setup 模式 1 个），覆盖程序集加载管理、引用查找、类型浏览、成员查询、C#/IL 反编译、**程序集编辑**、服务器管理七大类。
+## 已实现功能
 
 ### 程序集加载与管理
 
@@ -58,6 +56,7 @@
 | 工具名 | 功能 | 参数 |
 |--------|------|------|
 | `rename_type` | 重命名类型 | `assembly_path`, `full_type_name`, `new_name` |
+| `rename_type_namespace` | 修改类型的命名空间（仅非嵌套类型） | `assembly_path`, `full_type_name`, `new_namespace` |
 | `rename_method` | 重命名方法 | `assembly_path`, `full_type_name`, `method_name`, `new_name` |
 | `rename_field` | 重命名字段 | `assembly_path`, `full_type_name`, `field_name`, `new_name` |
 | `rename_property` | 重命名属性 | `assembly_path`, `full_type_name`, `property_name`, `new_name` |
@@ -105,8 +104,7 @@ BridgeDnSpyMCP Server (.NET Framework 4.8, C#)
   |     |-- ReferenceFinderService     -- 引用查找（委托 dnSpy ScopedWhereUsedAnalyzer + PLINQ 并行扫描）
   |     |-- MetadataBrowserService     -- 类型/成员枚举与查询（聚合 AssemblyLoader + ReferenceFinder）
   |     |-- DecompilationService       -- 反编译服务：AstBuilder(C#) + ReflectionDisassembler(IL)
-  |     |-- AssemblyEditorService      -- 程序集编辑（重命名、增删成员、IL 编辑、保存）(dnlib)
-  |     |-- DnSpyUtils.cs              -- 公共工具方法（编译器生成判断、IL 操作数格式化）
+  |     |-- AssemblyEditorService      -- 程序集编辑（重命名、命名空间修改、增删成员、IL 编辑、保存）(dnlib) |     |-- DnSpyUtils.cs              -- 公共工具方法（编译器生成判断、IL 操作数格式化）
   |
   +-- 数据模型
   |     |-- Models/Models.cs           -- AssemblyInfo, TypeInfo, MethodInfo, ReferenceInfo 等
@@ -154,7 +152,7 @@ dotnet build
 
 - 仅暴露 `configure_dnspy_path` 一个工具
 - 通过该工具设置正确的 dnSpy 安装路径后，服务器会自动执行自检
-- 自检通过后，**重启 MCP 服务器**即可激活全部 31 个工具
+- 自检通过后，**重启 MCP 服务器**即可激活全部工具
 
 #### 正常模式
 
