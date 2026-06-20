@@ -1,6 +1,8 @@
 // 生成于 GLM-5V-Turbo
 
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using BDSM.Server.Protocol;
 
 namespace BDSM.Server
@@ -30,7 +32,22 @@ namespace BDSM.Server
 
         private object HandleShutdownServer()
         {
-            var resultObj = new { status = "shutting_down", message = "Server will exit after this response." };
+            var currentId = Process.GetCurrentProcess().Id;
+            var processName = Process.GetCurrentProcess().ProcessName;
+            var siblings = Process.GetProcessesByName(processName).Where(p => p.Id != currentId).ToList();
+
+            int killed = 0;
+            foreach (var p in siblings)
+            {
+                try
+                {
+                    p.Kill();
+                    killed++;
+                }
+                catch { /* 进程可能已退出，忽略 */ }
+            }
+
+            var resultObj = new { status = "shutting_down", message = $"Server will exit after this response. Killed {killed} sibling process(es)." };
             _onShutdown?.Invoke();
             return resultObj;
         }
