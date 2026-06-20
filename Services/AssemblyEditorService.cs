@@ -8,6 +8,7 @@ using System.Linq;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 using dnlib.DotNet.Writer;
+using dnlib.PE;
 
 namespace BDSM.Services
 {
@@ -406,16 +407,23 @@ namespace BDSM.Services
         // ---- 保存操作 ----
 
         /// <summary>
-        /// 将修改后的程序集保存到新路径（不覆盖原文件）。
+        /// 将修改后的程序集保存到指定路径。
+        /// 当 outputPath 与原始路径相同时，自动释放内存映射锁以支持原位覆盖。
         /// </summary>
         public object SaveAssembly(string assemblyPath, string outputPath)
         {
             var module = _loader.GetModule(assemblyPath);
 
             var fullPath = Path.GetFullPath(outputPath);
+            var originalPath = Path.GetFullPath(module.Location);
+            bool inPlace = string.Equals(fullPath, originalPath, StringComparison.OrdinalIgnoreCase);
+
             var dir = Path.GetDirectoryName(fullPath);
             if (!Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
+
+            if (inPlace)
+                DisableMemoryMappedIO(module);
 
             var options = new ModuleWriterOptions(module);
             var writer = new ModuleWriter(module, options);
@@ -424,13 +432,36 @@ namespace BDSM.Services
             return new
             {
                 success = true,
-                message = string.Format("Assembly saved to: {0}", fullPath),
+                message = string.Format("Assembly saved to: {0} ({1})", fullPath, inPlace ? "in-place" : "new file"),
                 outputPath = fullPath,
-                originalPath = module.Location
+                originalPath = originalPath,
+                inPlace = inPlace
             };
         }
 
         // ---- 辅助方法 ----
+
+        /// <summary>
+        /// 释放模块的内存映射 I/O 锁，使同进程可原位写入该文件。
+        /// 原理：ModuleDefMD.Load() 默认使用 Memory-Mapped File 加载 PE 文件，
+        /// Windows 会持有 FILE_LOCK_Mapped 锁。通过 IInternalPEImage.UnsafeDisableMemoryMappedIO()
+        /// 可释放该锁（与 dnSpy 原位保存机制一致）。
+        /// </summary>
+        private static void DisableMemoryMappedIO(ModuleDefMD module)
+        {
+            // MetadataBase.peImage 是 protected 字段，类型为 IPEImage
+            var metadata = module.Metadata;
+            var peImageField = metadata.GetType().GetField("peImage",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            if (peImageField == null) return;
+
+            var peImage = peImageField.GetValue(metadata) as IPEImage;
+            if (peImage == null) return;
+
+            var internalPeImage = peImage as IInternalPEImage;
+            if (internalPeImage != null && internalPeImage.IsMemoryMappedIO)
+                internalPeImage.UnsafeDisableMemoryMappedIO();
+        }
 
         private static Instruction ParseInstruction(ModuleDefMD module, string text)
         {
