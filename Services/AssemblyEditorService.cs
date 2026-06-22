@@ -409,6 +409,149 @@ namespace BDSM.Services
             };
         }
 
+        // ---- 可见性修改操作 ----
+
+        /// <summary>
+        /// 修改类型的访问修饰符。
+        /// 支持的 visibility 值: public, internal(非嵌套), private(嵌套), protected(嵌套),
+        ///   protected_internal(嵌套), private_protected(嵌套)。
+        /// 非嵌套类型仅支持 public / internal；嵌套类型支持全部六种。
+        /// </summary>
+        public object ChangeTypeVisibility(string assemblyPath, string fullTypeName, string visibility)
+        {
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
+            var oldVis = GetTypeVisibilityName(type.Attributes);
+            var newAttr = ApplyTypeVisibility(type.Attributes, visibility, type.IsNested);
+            type.Attributes = newAttr;
+            var newVis = GetTypeVisibilityName(newAttr);
+            return new { success = true, message = string.Format("Type visibility changed: '{0}' -> '{1}' ({2})", oldVis, newVis, fullTypeName) };
+        }
+
+        /// <summary>
+        /// 修改方法的访问修饰符。
+        /// 支持的 visibility 值: public, private, protected, internal, protected_internal, private_protected。
+        /// </summary>
+        public object ChangeMethodVisibility(string assemblyPath, string fullTypeName, string methodName, string visibility)
+        {
+            var method = _loader.RequireMethod(assemblyPath, fullTypeName, methodName);
+            var oldVis = GetMethodVisibilityName(method.Attributes);
+            var newAttr = ApplyMethodVisibility(method.Attributes, visibility);
+            method.Attributes = newAttr;
+            var newVis = GetMethodVisibilityName(newAttr);
+            return new { success = true, message = string.Format("Method visibility changed: '{0}' -> '{1}' ({2}.{3})", oldVis, newVis, fullTypeName, methodName) };
+        }
+
+        // ---- 自定义特性操作 ----
+
+        /// <summary>
+        /// 根据 member_type 解析目标成员（type/method/field/property/event）。
+        /// </summary>
+        private static IHasCustomAttribute ResolveTargetMember(AssemblyLoaderService loader,
+            string assemblyPath, string fullTypeName, string memberName, string memberType)
+        {
+            var type = loader.RequireType(assemblyPath, fullTypeName);
+            return memberType.ToLowerInvariant() switch
+            {
+                "type"     => type,
+                "method"   => loader.RequireMethod(assemblyPath, fullTypeName, memberName),
+                "field"    => loader.RequireField(assemblyPath, fullTypeName, memberName),
+                "property" => loader.RequireProperty(assemblyPath, fullTypeName, memberName),
+                "event"    => loader.RequireEvent(assemblyPath, fullTypeName, memberName),
+                _ => throw new UserException(string.Format("Unsupported member_type: '{0}'. Supported: type/method/field/property/event.", memberType))
+            };
+        }
+
+        public object AddCustomAttribute(string assemblyPath, string fullTypeName, string memberName,
+            string memberType, string attributeTypeName, List<object> constructorArgs = null,
+            Dictionary<string, object> namedArgs = null)
+        {
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
+            var module = type.Module as ModuleDefMD;
+
+            var target = ResolveTargetMember(_loader, assemblyPath, fullTypeName, memberName, memberType);
+
+            var ctorSig = BuildCtorSignature(module, constructorArgs);
+
+            // 优先尝试在已加载程序集中解析为 TypeDef（同程序集或显式引用）
+            var attrTypeDef = ResolveAttributeType(module, attributeTypeName);
+            MethodDef ctorDef = null;
+            if (attrTypeDef != null)
+                ctorDef = FindMatchingConstructor(attrTypeDef, ctorSig);
+
+            // 回退：通过 TypeRef + MemberRef 创建跨程序集引用（适用于 CorLib 类型等）
+            CustomAttribute ca;
+            if (ctorDef != null)
+            {
+                ca = new CustomAttribute(ctorDef);
+            }
+            else
+            {
+                var typeRef = ResolveCorLibTypeRef(module, attributeTypeName);
+                if (typeRef == null)
+                    throw new UserException(string.Format("Attribute type '{0}' not found in assembly, its references, or corlib.", attributeTypeName));
+                var memberRef = new MemberRefUser(module, ".ctor", ctorSig);
+                memberRef.Class = typeRef;
+                ca = new CustomAttribute(memberRef);
+            }
+
+            // 填充构造函数参数
+            if (constructorArgs != null && constructorArgs.Count > 0)
+            {
+                foreach (var arg in constructorArgs)
+                    ca.ConstructorArguments.Add(CreateCAArgument(module, arg));
+            }
+
+            if (namedArgs != null)
+            {
+                foreach (var kvp in namedArgs)
+                {
+                    var caArg = CreateCAArgument(module, kvp.Value);
+                    ca.NamedArguments.Add(new CANamedArgument(false, caArg.Type, kvp.Key, caArg));
+                }
+            }
+
+            target.CustomAttributes.Add(ca);
+            return new { success = true, message = string.Format("Custom attribute '{0}' added to {1} '{2}'.", attributeTypeName, memberType, memberName) };
+        }
+
+        /// <summary>
+        /// 删除成员的自定义特性。
+        /// 按 attribute_type_name 匹配删除（删除所有匹配的特性实例）。
+        /// 若未提供 attribute_type_name，则删除该成员的所有自定义特性。
+        /// </summary>
+        public object RemoveCustomAttribute(string assemblyPath, string fullTypeName, string memberName,
+            string memberType, string attributeTypeName = null)
+        {
+            var target = ResolveTargetMember(_loader, assemblyPath, fullTypeName, memberName, memberType);
+
+            int removedCount;
+            if (attributeTypeName == null)
+            {
+                removedCount = target.CustomAttributes.Count;
+                target.CustomAttributes.Clear();
+            }
+            else
+            {
+                var toRemove = target.CustomAttributes.Where(ca =>
+                {
+                    if (ca.Constructor == null || ca.Constructor.DeclaringType == null) return false;
+                    return string.Equals(ca.Constructor.DeclaringType.FullName, attributeTypeName, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(ca.Constructor.DeclaringType.ReflectionFullName, attributeTypeName, StringComparison.OrdinalIgnoreCase);
+                }).ToList();
+
+                removedCount = toRemove.Count;
+                foreach (var ca in toRemove)
+                    target.CustomAttributes.Remove(ca);
+            }
+
+            return new
+            {
+                success = true,
+                message = string.Format("Removed {0} custom attribute(s) from {1} '{2}'.", removedCount, memberType, memberName),
+                removedCount = removedCount
+            };
+        }
+
         // ---- 保存操作 ----
 
         /// <summary>
@@ -549,6 +692,252 @@ namespace BDSM.Services
             var converted = name.Replace('.', '_');
             // 首字母大写，其余保持原样（dnlib 字段名是 PascalCase）
             return char.ToUpper(converted[0]) + converted.Substring(1);
+        }
+
+        // ---- 可见性辅助方法 ----
+
+        private const TypeAttributes TypeVisibilityMask = (TypeAttributes)0x00000007;
+        private const MethodAttributes MethodVisibilityMask = (MethodAttributes)0x00000007;
+
+        private static string GetTypeVisibilityName(TypeAttributes attr)
+        {
+            var vis = attr & TypeVisibilityMask;
+            if ((attr & TypeAttributes.VisibilityMask) != 0) // nested
+            {
+                switch (vis)
+                {
+                    case TypeAttributes.NestedPublic: return "public";
+                    case TypeAttributes.NestedPrivate: return "private";
+                    case TypeAttributes.NestedFamily: return "protected";
+                    case TypeAttributes.NestedAssembly: return "internal";
+                    case TypeAttributes.NestedFamANDAssem: return "private_protected";
+                    case TypeAttributes.NestedFamORAssem: return "protected_internal";
+                }
+            }
+            else
+            {
+                switch (vis)
+                {
+                    case TypeAttributes.Public: return "public";
+                    default: return "internal";
+                }
+            }
+            return "unknown";
+        }
+
+        private static string GetMethodVisibilityName(MethodAttributes attr)
+        {
+            switch (attr & MethodVisibilityMask)
+            {
+                case MethodAttributes.Private: return "private";
+                case MethodAttributes.FamANDAssem: return "private_protected";
+                case MethodAttributes.Assembly: return "internal";
+                case MethodAttributes.Family: return "protected";
+                case MethodAttributes.FamORAssem: return "protected_internal";
+                case MethodAttributes.Public: return "public";
+                default: return "private_scope";
+            }
+        }
+
+        private static TypeAttributes ApplyTypeVisibility(TypeAttributes current, string visibility, bool isNested)
+        {
+            var cleared = current & ~TypeVisibilityMask;
+            var lower = visibility.ToLowerInvariant().Replace("-", "_");
+
+            if (!isNested)
+            {
+                switch (lower)
+                {
+                    case "public": return cleared | TypeAttributes.Public;
+                    case "internal": return cleared; // NotPublic = 0
+                    default:
+                        throw new UserException(string.Format("Non-nested type only supports 'public' or 'internal'. Got: '{0}'. For nested types use: public/private/protected/internal/protected_internal/private_protected.", visibility));
+                }
+            }
+
+            switch (lower)
+            {
+                case "public": return cleared | TypeAttributes.NestedPublic;
+                case "private": return cleared | TypeAttributes.NestedPrivate;
+                case "protected": return cleared | TypeAttributes.NestedFamily;
+                case "internal": return cleared | TypeAttributes.NestedAssembly;
+                case "protected_internal": return cleared | TypeAttributes.NestedFamORAssem;
+                case "private_protected": return cleared | TypeAttributes.NestedFamANDAssem;
+                default:
+                    throw new UserException(string.Format("Unknown visibility '{0}'. Supported: public/private/protected/internal/protected_internal/private_protected.", visibility));
+            }
+        }
+
+        private static MethodAttributes ApplyMethodVisibility(MethodAttributes current, string visibility)
+        {
+            var cleared = current & ~MethodVisibilityMask;
+            var lower = visibility.ToLowerInvariant().Replace("-", "_");
+            switch (lower)
+            {
+                case "public": return cleared | MethodAttributes.Public;
+                case "private": return cleared | MethodAttributes.Private;
+                case "protected": return cleared | MethodAttributes.Family;
+                case "internal": return cleared | MethodAttributes.Assembly;
+                case "protected_internal": return cleared | MethodAttributes.FamORAssem;
+                case "private_protected": return cleared | MethodAttributes.FamANDAssem;
+                default:
+                    throw new UserException(string.Format("Unknown visibility '{0}'. Supported: public/private/protected/internal/protected_internal/private_protected.", visibility));
+            }
+        }
+
+        // ---- 自定义特性辅助方法 ----
+
+        private static TypeDef ResolveAttributeType(ModuleDefMD module, string attributeTypeName)
+        {
+            // 先在当前模块中查找
+            var type = module.Find(attributeTypeName, false);
+            if (type != null) return type;
+
+            // 在引用的程序集中查找
+            foreach (var asmRef in module.GetAssemblyRefs())
+            {
+                var resolved = module.Context.AssemblyResolver.Resolve(asmRef, module);
+                if (resolved == null) continue;
+
+                foreach (var mod in resolved.Modules)
+                {
+                    var modTypeDef = mod as ModuleDefMD;
+                    if (modTypeDef == null) continue;
+                    var found = modTypeDef.Find(attributeTypeName, false);
+                    if (found != null) return found;
+                }
+            }
+
+            // 尝试解析为 CorLib 类型（如 System.ObsoleteAttribute）
+            var corLibType = ResolveCorLibTypeRef(module, attributeTypeName);
+            if (corLibType != null)
+            {
+                var resolvedTypeDef = corLibType.Resolve();
+                if (resolvedTypeDef != null) return resolvedTypeDef;
+            }
+
+            // 未找到，返回 null 由调用方决定是否回退到 TypeRef+MemberRef 路径
+            return null;
+        }
+
+        /// <summary>
+        /// 将全限定类型名拆分为命名空间和类型名，通过 CorLibTypes.GetTypeRef(ns, name) 获取 TypeRef。
+        /// </summary>
+        private static TypeRef ResolveCorLibTypeRef(ModuleDefMD module, string fullTypeName)
+        {
+            var dotIndex = fullTypeName.LastIndexOf('.');
+            if (dotIndex < 0)
+                return module.CorLibTypes.GetTypeRef("", fullTypeName);
+            var ns = fullTypeName.Substring(0, dotIndex);
+            var name = fullTypeName.Substring(dotIndex + 1);
+            return module.CorLibTypes.GetTypeRef(ns, name);
+        }
+
+        private static MethodSig BuildCtorSignature(ModuleDefMD module, List<object> args)
+        {
+            if (args == null || args.Count == 0)
+                return MethodSig.CreateInstance(module.CorLibTypes.Void);
+
+            var sig = MethodSig.CreateInstance(module.CorLibTypes.Void);
+            foreach (var arg in args)
+            {
+                sig.Params.Add(InferParamType(module, arg));
+            }
+            return sig;
+        }
+
+        private static TypeSig InferParamType(ModuleDefMD module, object value)
+        {
+            if (value is bool) return module.CorLibTypes.Boolean;
+            if (value is int || value is long) return module.CorLibTypes.Int32;
+            if (value is double || value is float) return module.CorLibTypes.Double;
+            if (value is string) return module.CorLibTypes.String;
+            if (value is System.Collections.IList list && list.Count > 0)
+                return new SZArraySig(InferParamType(module, list[0]));
+            return module.CorLibTypes.Object;
+        }
+
+        private static MethodDef FindMatchingConstructor(TypeDef attrTypeDef, MethodSig expectedSig)
+        {
+            foreach (var method in attrTypeDef.Methods)
+            {
+                if (!method.IsConstructor || method.IsStatic) continue;
+                var methodSig = method.MethodSig;
+                if (methodSig == null) continue;
+                if (ParamsMatch(methodSig.Params, expectedSig.Params))
+                    return method;
+            }
+            return null;
+        }
+
+        private static bool ParamsMatch(IList<TypeSig> actual, IList<TypeSig> expected)
+        {
+            if (actual.Count != expected.Count) return false;
+            for (int i = 0; i < actual.Count; i++)
+            {
+                if (!IsCompatibleType(actual[i], expected[i]))
+                    return false;
+            }
+            return true;
+        }
+
+        private static bool IsCompatibleType(TypeSig actual, TypeSig expected)
+        {
+            // 宽松匹配：基本类型兼容即可
+            var a = actual.RemovePinnedAndModifiers().GetElementType();
+            var e = expected.RemovePinnedAndModifiers().GetElementType();
+
+            // 数组类型特殊处理
+            if (a == ElementType.SZArray && e == ElementType.SZArray) return true;
+            if (a == ElementType.Array && e == ElementType.Array) return true;
+
+            // 数值类型之间互相兼容（签名不精确匹配时用 object 兜底）
+            if (IsNumericElement(a) && IsNumericElement(e)) return true;
+            if (a == e) return true;
+            if (e == ElementType.Object) return true; // object 兼容所有
+
+            return false;
+        }
+
+        private static bool IsNumericElement(ElementType et)
+        {
+            switch (et)
+            {
+                case ElementType.I1:
+                case ElementType.U1:
+                case ElementType.I2:
+                case ElementType.U2:
+                case ElementType.I4:
+                case ElementType.U4:
+                case ElementType.I8:
+                case ElementType.U8:
+                case ElementType.R4:
+                case ElementType.R8:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static CAArgument CreateCAArgument(ModuleDefMD module, object value) => value switch
+        {
+            bool b   => new(module.CorLibTypes.Boolean, b),
+            int i    => new(module.CorLibTypes.Int32, i),
+            long l   => new(module.CorLibTypes.Int64, l),
+            double d => new(module.CorLibTypes.Double, d),
+            float f  => new(module.CorLibTypes.Single, f),
+            string s => new(module.CorLibTypes.String, s),
+            System.Collections.IList list => CreateArrayCAArg(module, list),
+            _ => new(module.CorLibTypes.Object, value?.ToString() ?? "")
+        };
+
+        private static CAArgument CreateArrayCAArg(ModuleDefMD module, System.Collections.IList list)
+        {
+            var elemType = list.Count > 0 ? InferParamType(module, list[0]) : module.CorLibTypes.Object;
+            var elements = new List<CAArgument>();
+            foreach (var item in list)
+                elements.Add(CreateCAArgument(module, item));
+            return new CAArgument(new SZArraySig(elemType), elements);
         }
     }
 }

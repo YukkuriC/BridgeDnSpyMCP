@@ -1,6 +1,6 @@
 ---
 alwaysApply: false
-description: TODO/文档维护规范
+description: 更新 TODO.md / README.md 功能清单时（完成项直接删除，不标记状态）
 ---
 # TODO 完成即删除
 

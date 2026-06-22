@@ -159,6 +159,54 @@ namespace BDSM.Server
                 },
                 new List<string> {"assembly_path", "full_type_name", "method_name"}));
 
+            // ---- 元数据编辑工具 ----
+            tools.Add(MakeTool("change_type_visibility",
+                "修改类型的访问修饰符（public/internal等）。非嵌套类型支持 public/internal；嵌套类型支持 public/private/protected/internal/protected_internal/private_protected。",
+                new Dictionary<string, PropertySchema>
+                {
+                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
+                    {"visibility", new PropertySchema{ Type="string", Description="目标可见性: public/internal(非嵌套) / public/private/protected/internal/protected_internal/private_protected(嵌套)"}}
+                },
+                new List<string> {"assembly_path", "full_type_name", "visibility"}));
+
+            tools.Add(MakeTool("change_method_visibility",
+                "修改方法的访问修饰符。支持: public/private/protected/internal/protected_internal/private_protected。",
+                new Dictionary<string, PropertySchema>
+                {
+                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
+                    {"method_name", new PropertySchema{ Type="string", Description="方法名"}},
+                    {"visibility", new PropertySchema{ Type="string", Description="目标可见性: public/private/protected/internal/protected_internal/private_protected"}}
+                },
+                new List<string> {"assembly_path", "full_type_name", "method_name", "visibility"}));
+
+            tools.Add(MakeTool("add_custom_attribute",
+                "为成员添加自定义特性。member_type 支持 type/method/field/property/event；constructor_args 为构造函数参数列表（可选）；named_args 为命名参数字典（可选）。",
+                new Dictionary<string, PropertySchema>
+                {
+                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
+                    {"member_name", new PropertySchema{ Type="string", Description="成员名称（member_type=type 时可为空字符串）"}},
+                    {"member_type", new PropertySchema{ Type="string", Description="成员类型: type/method/field/property/event"}},
+                    {"attribute_type_name", new PropertySchema{ Type="string", Description="特性的全限定类型名（如 System.ObsoleteAttribute）"}},
+                    {"constructor_args", new PropertySchema{ Type="array", Items=new PropertySchema{Type="string"}, Description="构造函数参数列表（可选）"}},
+                    {"named_args", new PropertySchema{ Type="object", Description="命名参数字典（可选），如 {\"Message\":\"deprecated\"}"}}
+                },
+                new List<string> {"assembly_path", "full_type_name", "member_name", "member_type", "attribute_type_name"}));
+
+            tools.Add(MakeTool("remove_custom_attribute",
+                "删除成员的自定义特性。按 attribute_type_name 匹配删除所有匹配实例；若不提供则删除该成员全部自定义特性。",
+                new Dictionary<string, PropertySchema>
+                {
+                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
+                    {"member_name", new PropertySchema{ Type="string", Description="成员名称（member_type=type 时可为空字符串）"}},
+                    {"member_type", new PropertySchema{ Type="string", Description="成员类型: type/method/field/property/event"}},
+                    {"attribute_type_name", new PropertySchema{ Type="string", Description="要删除的特性全限定名（可选，不提供则删除全部）"}}
+                },
+                new List<string> {"assembly_path", "full_type_name", "member_name", "member_type"}));
+
             // ---- 保存工具 ----
             tools.Add(MakeTool("save_assembly",
                 "将修改后的程序集保存到新路径（不覆盖原文件）。",
@@ -188,6 +236,10 @@ namespace BDSM.Server
                 case "edit_method_il":      result = HandleEditMethodIL(args); return true;
                 case "insert_il_instruction": result = HandleInsertILInstruction(args); return true;
                 case "remove_il_instruction": result = HandleRemoveILInstruction(args); return true;
+                case "change_type_visibility":  result = HandleChangeTypeVisibility(args); return true;
+                case "change_method_visibility": result = HandleChangeMethodVisibility(args); return true;
+                case "add_custom_attribute":     result = HandleAddCustomAttribute(args); return true;
+                case "remove_custom_attribute":   result = HandleRemoveCustomAttribute(args); return true;
                 case "save_assembly":       result = HandleSaveAssembly(args); return true;
                 default: result = null; return false;
             }
@@ -351,6 +403,63 @@ namespace BDSM.Server
                 throw new UserException("At least one of 'offset', 'end_offset' or 'offsets' must be provided.");
 
             return _editor.RemoveILInstruction(assemblyPath, fullTypeName, methodName, offset, endOffset, offsetList);
+        }
+
+        private object HandleChangeTypeVisibility(Dictionary<string, object> args)
+        {
+            return _editor.ChangeTypeVisibility(
+                GetRequiredArg<string>(args, "assembly_path"),
+                GetRequiredArg<string>(args, "full_type_name"),
+                GetRequiredArg<string>(args, "visibility"));
+        }
+
+        private object HandleChangeMethodVisibility(Dictionary<string, object> args)
+        {
+            return _editor.ChangeMethodVisibility(
+                GetRequiredArg<string>(args, "assembly_path"),
+                GetRequiredArg<string>(args, "full_type_name"),
+                GetRequiredArg<string>(args, "method_name"),
+                GetRequiredArg<string>(args, "visibility"));
+        }
+
+        private object HandleAddCustomAttribute(Dictionary<string, object> args)
+        {
+            List<object> ctorArgs = null;
+            var rawCtorArgs = GetOptionalArg<object>(args, "constructor_args");
+            if (rawCtorArgs is System.Collections.IList list)
+            {
+                ctorArgs = new List<object>();
+                foreach (var item in list)
+                    ctorArgs.Add(item);
+            }
+
+            Dictionary<string, object> namedArgs = null;
+            var rawNamedArgs = GetOptionalArg<object>(args, "named_args");
+            if (rawNamedArgs is System.Collections.IDictionary dict)
+            {
+                namedArgs = new Dictionary<string, object>();
+                foreach (System.Collections.DictionaryEntry kvp in dict)
+                    namedArgs[kvp.Key.ToString()] = kvp.Value;
+            }
+
+            return _editor.AddCustomAttribute(
+                GetRequiredArg<string>(args, "assembly_path"),
+                GetRequiredArg<string>(args, "full_type_name"),
+                GetRequiredArg<string>(args, "member_name"),
+                GetRequiredArg<string>(args, "member_type"),
+                GetRequiredArg<string>(args, "attribute_type_name"),
+                ctorArgs,
+                namedArgs);
+        }
+
+        private object HandleRemoveCustomAttribute(Dictionary<string, object> args)
+        {
+            return _editor.RemoveCustomAttribute(
+                GetRequiredArg<string>(args, "assembly_path"),
+                GetRequiredArg<string>(args, "full_type_name"),
+                GetRequiredArg<string>(args, "member_name"),
+                GetRequiredArg<string>(args, "member_type"),
+                GetOptionalArg<string>(args, "attribute_type_name"));
         }
 
         private object HandleSaveAssembly(Dictionary<string, object> args)

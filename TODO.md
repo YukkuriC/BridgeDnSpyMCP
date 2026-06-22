@@ -12,15 +12,6 @@
 
 ## 程序集编辑类工具
 
-### 1. 元数据编辑
-
-| 工具名 | 功能 | 对应 dnSpy API | 优先级 |
-|--------|------|---------------|--------|
-| `change_type_visibility` | 修改类型的访问修饰符（public/internal等） | `TypeDef.Attributes` | P2 |
-| `change_method_visibility` | 修改方法的访问修饰符 | `MethodDef.Attributes` | P2 |
-| `add_custom_attribute` | 为成员添加自定义特性 | `CustomAttributes.Add()` | P2 |
-| `remove_custom_attribute` | 删除成员的自定义特性 | `CustomAttributes.Remove()` | P2 |
-
 ### 2. 结构编辑
 
 | 工具名 | 功能 | 对应 dnSpy API | 优先级 |

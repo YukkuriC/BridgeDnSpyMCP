@@ -68,6 +68,10 @@
 | `insert_il_instruction` | 在指定偏移位置插入 IL 指令（支持批量）。提供 instruction 单条；提供 instructions 数组批量插入 | `assembly_path`, `full_type_name`, `method_name`, `offset`, `instruction`(与 instructions 二选一), `instructions`(数组, 与 instruction 二选一) |
 | `remove_il_instruction` | 删除 IL 指令（支持范围/批量/单条）。offset+end_offset 删除 [offset, end_offset) 范围；offsets 数组删除多个指定偏移；仅 offset 删除单条 | `assembly_path`, `full_type_name`, `method_name`, `offset`(与 end_offset/offsets 配合时可选), `end_offset`(可选), `offsets`(数组, 可选) |
 | `save_assembly` | 将修改后的程序集保存到新路径（不覆盖原文件） | `assembly_path`, `output_path` |
+| `change_type_visibility` | 修改类型的访问修饰符（非嵌套：public/internal；嵌套：6种） | `assembly_path`, `full_type_name`, `visibility` |
+| `change_method_visibility` | 修改方法的访问修饰符（public/private/protected/internal/protected_internal/private_protected） | `assembly_path`, `full_type_name`, `method_name`, `visibility` |
+| `add_custom_attribute` | 为成员添加自定义特性（支持构造函数参数 + 命名参数，CorLib 类型自动回退） | `assembly_path`, `full_type_name`, `member_name`, `member_type`, `attribute_type_name`, `constructor_args`(可选), `named_args`(可选) |
+| `remove_custom_attribute` | 删除成员的自定义特性（按类型名匹配删除，不提供则全删） | `assembly_path`, `full_type_name`, `member_name`, `member_type`, `attribute_type_name`(可选) |
 
 ### 服务器管理
 
