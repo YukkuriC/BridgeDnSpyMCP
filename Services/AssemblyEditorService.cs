@@ -515,6 +515,17 @@ namespace BDSM.Services
         }
 
         /// <summary>
+        /// 按 attributeTypeName 筛选自定义特性。attributeTypeName 为 null 时匹配全部。
+        /// </summary>
+        private static bool AttributeTypeNameMatches(CustomAttribute ca, string attributeTypeName)
+        {
+            if (ca.Constructor == null || ca.Constructor.DeclaringType == null) return false;
+            if (attributeTypeName == null) return true;
+            return string.Equals(ca.Constructor.DeclaringType.FullName, attributeTypeName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(ca.Constructor.DeclaringType.ReflectionFullName, attributeTypeName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
         /// 删除成员的自定义特性。
         /// 按 attribute_type_name 匹配删除（删除所有匹配的特性实例）。
         /// 若未提供 attribute_type_name，则删除该成员的所有自定义特性。
@@ -532,12 +543,9 @@ namespace BDSM.Services
             }
             else
             {
-                var toRemove = target.CustomAttributes.Where(ca =>
-                {
-                    if (ca.Constructor == null || ca.Constructor.DeclaringType == null) return false;
-                    return string.Equals(ca.Constructor.DeclaringType.FullName, attributeTypeName, StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(ca.Constructor.DeclaringType.ReflectionFullName, attributeTypeName, StringComparison.OrdinalIgnoreCase);
-                }).ToList();
+                var toRemove = target.CustomAttributes
+                    .Where(ca => AttributeTypeNameMatches(ca, attributeTypeName))
+                    .ToList();
 
                 removedCount = toRemove.Count;
                 foreach (var ca in toRemove)
@@ -549,6 +557,47 @@ namespace BDSM.Services
                 success = true,
                 message = string.Format("Removed {0} custom attribute(s) from {1} '{2}'.", removedCount, memberType, memberName),
                 removedCount = removedCount
+            };
+        }
+
+        /// <summary>
+        /// 列出目标成员上的所有自定义特性。
+        /// 若提供 attributeTypeName，则只返回匹配的特性。
+        /// </summary>
+        public object ListCustomAttributes(string assemblyPath, string fullTypeName, string memberName,
+            string memberType, string attributeTypeName = null)
+        {
+            var target = ResolveTargetMember(_loader, assemblyPath, fullTypeName, memberName, memberType);
+
+            var attrs = target.CustomAttributes
+                .Where(ca => AttributeTypeNameMatches(ca, attributeTypeName))
+                .Select(ca =>
+                {
+                    var ctorArgs = ca.ConstructorArguments?
+                        .Select(a => a.Value?.ToString() ?? "null")
+                        .ToList();
+
+                    var namedArgs = ca.NamedArguments?
+                        .Select(n => new { name = n.Name?.ToString() ?? "", value = n.Argument.Value?.ToString() ?? "null" })
+                        .ToDictionary(n => n.name, n => n.value, StringComparer.Ordinal);
+
+                    return new
+                    {
+                        attribute_type = ca.Constructor.DeclaringType.FullName,
+                        constructor_args = ctorArgs ?? new List<string>(),
+                        named_args = namedArgs ?? new Dictionary<string, string>()
+                    };
+                })
+                .ToList();
+
+            return new
+            {
+                success = true,
+                member_type = memberType,
+                member_name = memberName,
+                full_type_name = fullTypeName,
+                attributes = attrs,
+                count = attrs.Count
             };
         }
 

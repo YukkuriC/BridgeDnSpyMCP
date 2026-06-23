@@ -151,19 +151,19 @@ namespace BDSM.Server
 
             // ---- 特性操作工具 ----
             tools.Add(MakeTool("custom_attribute_op",
-                "自定义特性操作。通过 op 参数指定操作方向：add（添加）、remove（删除）。member_type 支持 type/method/field/property/event；constructor_args 为构造函数参数列表（可选）；named_args 为命名参数字典（可选）。remove 操作按 attribute_type_name 匹配删除所有匹配实例；若不提供则删除该成员全部自定义特性。",
+                "自定义特性操作。通过 op 参数指定操作方向：add（添加）、remove（删除）、list（列出）。member_type 支持 type/method/field/property/event；constructor_args 为构造函数参数列表（可选）；named_args 为命名参数字典（可选）。remove 操作按 attribute_type_name 匹配删除所有匹配实例；若不提供则删除该成员全部自定义特性。list 操作列出目标上所有特性，可按 attribute_type_name 过滤。",
                 new Dictionary<string, PropertySchema>
                 {
-                    {"op", new PropertySchema{ Type="string", Description="操作方向: add / remove"}},
+                    {"op", new PropertySchema{ Type="string", Description="操作方向: add / remove / list"}},
                     {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
                     {"member_name", new PropertySchema{ Type="string", Description="成员名称（member_type=type 时可为空字符串）"}},
                     {"member_type", new PropertySchema{ Type="string", Description="成员类型: type/method/field/property/event"}},
-                    {"attribute_type_name", new PropertySchema{ Type="string", Description="特性的全限定类型名（如 System.ObsoleteAttribute）"}},
+                    {"attribute_type_name", new PropertySchema{ Type="string", Description="特性的全限定类型名（如 System.ObsoleteAttribute）。list/remove 时可选，不填则作用于全部"}},
                     {"constructor_args", new PropertySchema{ Type="array", Items=new PropertySchema{Type="string"}, Description="构造函数参数列表（仅 op=add 时有效）"}},
                     {"named_args", new PropertySchema{ Type="object", Description="命名参数字典（仅 op=add 时有效），如 {\"Message\":\"deprecated\"}"}}
                 },
-                new List<string> {"op", "assembly_path", "full_type_name", "member_name", "member_type", "attribute_type_name"}));
+                new List<string> {"op", "assembly_path", "full_type_name", "member_name", "member_type"}));
 
             // ---- 保存工具 ----
             tools.Add(MakeTool("save_assembly",
@@ -365,12 +365,15 @@ namespace BDSM.Server
             var fullTypeName = GetRequiredArg<string>(args, "full_type_name");
             var memberName = GetRequiredArg<string>(args, "member_name");
             var memberType = GetRequiredArg<string>(args, "member_type");
-            var attributeTypeName = GetRequiredArg<string>(args, "attribute_type_name");
+            var attributeTypeName = GetOptionalArg<string>(args, "attribute_type_name");
 
             switch (op)
             {
                 case "add":
                 {
+                    if (string.IsNullOrEmpty(attributeTypeName))
+                        throw new UserException("'attribute_type_name' is required for add operation.");
+
                     List<object> ctorArgs = null;
                     var rawCtorArgs = GetOptionalArg<object>(args, "constructor_args");
                     if (rawCtorArgs is System.Collections.IList list)
@@ -393,8 +396,10 @@ namespace BDSM.Server
                 }
                 case "remove":
                     return _editor.RemoveCustomAttribute(assemblyPath, fullTypeName, memberName, memberType, attributeTypeName);
+                case "list":
+                    return _editor.ListCustomAttributes(assemblyPath, fullTypeName, memberName, memberType, attributeTypeName);
                 default:
-                    throw new UserException("Invalid op '" + op + "'. Must be one of: add, remove.");
+                    throw new UserException("Invalid op '" + op + "'. Must be one of: add, remove, list.");
             }
         }
 
