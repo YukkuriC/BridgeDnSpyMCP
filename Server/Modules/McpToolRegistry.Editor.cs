@@ -36,49 +36,17 @@ namespace BDSM.Server
                 },
                 new List<string> {"assembly_path", "full_type_name", "new_namespace"}));
 
-            tools.Add(MakeTool("rename_method",
-                "重命名指定方法。",
+            tools.Add(MakeTool("rename_type_member",
+                "重命名类型下的成员。通过 op 参数指定成员类型：method（方法）、field（字段）、property（属性）、event（事件）。",
                 new Dictionary<string, PropertySchema>
                 {
+                    {"op", new PropertySchema{ Type="string", Description="成员类型: method / field / property / event"}},
                     {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
-                    {"method_name", new PropertySchema{ Type="string", Description="方法名"}},
-                    {"new_name", new PropertySchema{ Type="string", Description="新的方法名"}}
+                    {"member_name", new PropertySchema{ Type="string", Description="要重命名的成员名称"}},
+                    {"new_name", new PropertySchema{ Type="string", Description="新的名称"}}
                 },
-                new List<string> {"assembly_path", "full_type_name", "method_name", "new_name"}));
-
-            tools.Add(MakeTool("rename_field",
-                "重命名字段。",
-                new Dictionary<string, PropertySchema>
-                {
-                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                    {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
-                    {"field_name", new PropertySchema{ Type="string", Description="字段名"}},
-                    {"new_name", new PropertySchema{ Type="string", Description="新的字段名"}}
-                },
-                new List<string> {"assembly_path", "full_type_name", "field_name", "new_name"}));
-
-            tools.Add(MakeTool("rename_property",
-                "重命名属性。",
-                new Dictionary<string, PropertySchema>
-                {
-                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                    {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
-                    {"property_name", new PropertySchema{ Type="string", Description="属性名"}},
-                    {"new_name", new PropertySchema{ Type="string", Description="新的属性名"}}
-                },
-                new List<string> {"assembly_path", "full_type_name", "property_name", "new_name"}));
-
-            tools.Add(MakeTool("rename_event",
-                "重命名事件。",
-                new Dictionary<string, PropertySchema>
-                {
-                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                    {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
-                    {"event_name", new PropertySchema{ Type="string", Description="事件名"}},
-                    {"new_name", new PropertySchema{ Type="string", Description="新的事件名"}}
-                },
-                new List<string> {"assembly_path", "full_type_name", "event_name", "new_name"}));
+                new List<string> {"op", "assembly_path", "full_type_name", "member_name", "new_name"}));
 
             // ---- 添加成员工具 ----
             tools.Add(MakeTool("add_field",
@@ -216,10 +184,7 @@ namespace BDSM.Server
             {
                 case "rename_type":         result = HandleRenameType(args); return true;
                 case "rename_type_namespace": result = HandleRenameTypeNamespace(args); return true;
-                case "rename_method":       result = HandleRenameMethod(args); return true;
-                case "rename_field":        result = HandleRenameField(args); return true;
-                case "rename_property":     result = HandleRenameProperty(args); return true;
-                case "rename_event":        result = HandleRenameEvent(args); return true;
+                case "rename_type_member":   result = HandleRenameTypeMember(args); return true;
                 case "add_field":           result = HandleAddField(args); return true;
                 case "add_method":          result = HandleAddMethod(args); return true;
                 case "remove_member":       result = HandleRemoveMember(args); return true;
@@ -250,40 +215,22 @@ namespace BDSM.Server
                 GetRequiredArg<string>(args, "new_namespace"));
         }
 
-        private object HandleRenameMethod(Dictionary<string, object> args)
+        private object HandleRenameTypeMember(Dictionary<string, object> args)
         {
-            return _editor.RenameMethod(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "method_name"),
-                GetRequiredArg<string>(args, "new_name"));
-        }
+            var op = GetRequiredArg<string>(args, "op");
+            var assemblyPath = GetRequiredArg<string>(args, "assembly_path");
+            var fullTypeName = GetRequiredArg<string>(args, "full_type_name");
+            var memberName = GetRequiredArg<string>(args, "member_name");
+            var newName = GetRequiredArg<string>(args, "new_name");
 
-        private object HandleRenameField(Dictionary<string, object> args)
-        {
-            return _editor.RenameField(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "field_name"),
-                GetRequiredArg<string>(args, "new_name"));
-        }
-
-        private object HandleRenameProperty(Dictionary<string, object> args)
-        {
-            return _editor.RenameProperty(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "property_name"),
-                GetRequiredArg<string>(args, "new_name"));
-        }
-
-        private object HandleRenameEvent(Dictionary<string, object> args)
-        {
-            return _editor.RenameEvent(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "event_name"),
-                GetRequiredArg<string>(args, "new_name"));
+            switch (op)
+            {
+                case "method":   return _editor.RenameMethod(assemblyPath, fullTypeName, memberName, newName);
+                case "field":    return _editor.RenameField(assemblyPath, fullTypeName, memberName, newName);
+                case "property": return _editor.RenameProperty(assemblyPath, fullTypeName, memberName, newName);
+                case "event":    return _editor.RenameEvent(assemblyPath, fullTypeName, memberName, newName);
+                default: throw new UserException("Invalid op '" + op + "'. Must be one of: method, field, property, event.");
+            }
         }
 
         private object HandleAddField(Dictionary<string, object> args)

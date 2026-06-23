@@ -54,10 +54,7 @@
 |--------|------|------|
 | `rename_type` | 重命名类型 | `assembly_path`, `full_type_name`, `new_name` |
 | `rename_type_namespace` | 修改类型的命名空间（仅非嵌套类型） | `assembly_path`, `full_type_name`, `new_namespace` |
-| `rename_method` | 重命名方法 | `assembly_path`, `full_type_name`, `method_name`, `new_name` |
-| `rename_field` | 重命名字段 | `assembly_path`, `full_type_name`, `field_name`, `new_name` |
-| `rename_property` | 重命名属性 | `assembly_path`, `full_type_name`, `property_name`, `new_name` |
-| `rename_event` | 重命名事件 | `assembly_path`, `full_type_name`, `event_name`, `new_name` |
+| `rename_type_member` | 重命名类型下的成员。通过 `op` 参数指定成员类型：method（方法）/ field（字段）/ property（属性）/ event（事件） | `op`, `assembly_path`, `full_type_name`, `member_name`, `new_name` |
 | `add_field` | 添加字段到指定类型 | `assembly_path`, `full_type_name`, `field_name`, `field_type`(可选), `is_static`(可选), `is_public`(可选) |
 | `add_method` | 添加空方法到指定类型（仅含 ret） | `assembly_path`, `full_type_name`, `method_name`, `param_count`(可选), `is_static`(可选), `is_public`(可选) |
 | `remove_member` | 删除成员（方法/字段/属性/事件） | `assembly_path`, `full_type_name`, `member_name`, `member_type`(可选, 默认 method) |
