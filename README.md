@@ -35,10 +35,7 @@
 
 | 工具名 | 功能 | 参数 |
 |--------|------|------|
-| `list_methods` | 列出类型的所有方法（含签名、返回值、可见性等） | `assembly_path`, `full_type_name` |
-| `list_fields` | 列出类型的所有字段（含类型、常量值、可见性等） | `assembly_path`, `full_type_name` |
-| `list_properties` | 列出类型的所有属性（含类型、getter/setter 可见性等） | `assembly_path`, `full_type_name` |
-| `list_events` | 列出类型的所有事件 | `assembly_path`, `full_type_name` |
+| `list_members` | 列出指定类型的成员。通过 `op` 参数指定成员类型：methods（方法）、fields（字段）、properties（属性）、events（事件） | `assembly_path`, `full_type_name`, `op` |
 | `get_method_info` | 获取单个方法的完整签名和元数据信息 | `assembly_path`, `full_type_name`, `method_name` |
 | `get_method_il` | 获取方法的 IL 指令列表（偏移量、操作码、操作数） | `assembly_path`, `full_type_name`, `method_name` |
 
@@ -70,8 +67,7 @@
 | `save_assembly` | 将修改后的程序集保存到新路径（不覆盖原文件） | `assembly_path`, `output_path` |
 | `change_type_visibility` | 修改类型的访问修饰符（非嵌套：public/internal；嵌套：6种） | `assembly_path`, `full_type_name`, `visibility` |
 | `change_method_visibility` | 修改方法的访问修饰符（public/private/protected/internal/protected_internal/private_protected） | `assembly_path`, `full_type_name`, `method_name`, `visibility` |
-| `add_custom_attribute` | 为成员添加自定义特性（支持构造函数参数 + 命名参数，CorLib 类型自动回退） | `assembly_path`, `full_type_name`, `member_name`, `member_type`, `attribute_type_name`, `constructor_args`(可选), `named_args`(可选) |
-| `remove_custom_attribute` | 删除成员的自定义特性（按类型名匹配删除，不提供则全删） | `assembly_path`, `full_type_name`, `member_name`, `member_type`, `attribute_type_name`(可选) |
+| `custom_attribute_op` | 自定义特性操作。通过 `op` 参数指定操作方向：add（添加）/ remove（删除）。支持构造函数参数 + 命名参数，CorLib 类型自动回退 | `op`, `assembly_path`, `full_type_name`, `member_name`, `member_type`, `attribute_type_name`, `constructor_args`(可选), `named_args`(可选) |
 
 ### 服务器管理
 

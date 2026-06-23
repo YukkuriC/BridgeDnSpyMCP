@@ -181,31 +181,21 @@ namespace BDSM.Server
                 },
                 new List<string> {"assembly_path", "full_type_name", "method_name", "visibility"}));
 
-            tools.Add(MakeTool("add_custom_attribute",
-                "为成员添加自定义特性。member_type 支持 type/method/field/property/event；constructor_args 为构造函数参数列表（可选）；named_args 为命名参数字典（可选）。",
+            // ---- 特性操作工具 ----
+            tools.Add(MakeTool("custom_attribute_op",
+                "自定义特性操作。通过 op 参数指定操作方向：add（添加）、remove（删除）。member_type 支持 type/method/field/property/event；constructor_args 为构造函数参数列表（可选）；named_args 为命名参数字典（可选）。remove 操作按 attribute_type_name 匹配删除所有匹配实例；若不提供则删除该成员全部自定义特性。",
                 new Dictionary<string, PropertySchema>
                 {
+                    {"op", new PropertySchema{ Type="string", Description="操作方向: add / remove"}},
                     {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
                     {"member_name", new PropertySchema{ Type="string", Description="成员名称（member_type=type 时可为空字符串）"}},
                     {"member_type", new PropertySchema{ Type="string", Description="成员类型: type/method/field/property/event"}},
                     {"attribute_type_name", new PropertySchema{ Type="string", Description="特性的全限定类型名（如 System.ObsoleteAttribute）"}},
-                    {"constructor_args", new PropertySchema{ Type="array", Items=new PropertySchema{Type="string"}, Description="构造函数参数列表（可选）"}},
-                    {"named_args", new PropertySchema{ Type="object", Description="命名参数字典（可选），如 {\"Message\":\"deprecated\"}"}}
+                    {"constructor_args", new PropertySchema{ Type="array", Items=new PropertySchema{Type="string"}, Description="构造函数参数列表（仅 op=add 时有效）"}},
+                    {"named_args", new PropertySchema{ Type="object", Description="命名参数字典（仅 op=add 时有效），如 {\"Message\":\"deprecated\"}"}}
                 },
-                new List<string> {"assembly_path", "full_type_name", "member_name", "member_type", "attribute_type_name"}));
-
-            tools.Add(MakeTool("remove_custom_attribute",
-                "删除成员的自定义特性。按 attribute_type_name 匹配删除所有匹配实例；若不提供则删除该成员全部自定义特性。",
-                new Dictionary<string, PropertySchema>
-                {
-                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
-                    {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
-                    {"member_name", new PropertySchema{ Type="string", Description="成员名称（member_type=type 时可为空字符串）"}},
-                    {"member_type", new PropertySchema{ Type="string", Description="成员类型: type/method/field/property/event"}},
-                    {"attribute_type_name", new PropertySchema{ Type="string", Description="要删除的特性全限定名（可选，不提供则删除全部）"}}
-                },
-                new List<string> {"assembly_path", "full_type_name", "member_name", "member_type"}));
+                new List<string> {"op", "assembly_path", "full_type_name", "member_name", "member_type", "attribute_type_name"}));
 
             // ---- 保存工具 ----
             tools.Add(MakeTool("save_assembly",
@@ -238,8 +228,7 @@ namespace BDSM.Server
                 case "remove_il_instruction": result = HandleRemoveILInstruction(args); return true;
                 case "change_type_visibility":  result = HandleChangeTypeVisibility(args); return true;
                 case "change_method_visibility": result = HandleChangeMethodVisibility(args); return true;
-                case "add_custom_attribute":     result = HandleAddCustomAttribute(args); return true;
-                case "remove_custom_attribute":   result = HandleRemoveCustomAttribute(args); return true;
+                case "custom_attribute_op":      result = HandleCustomAttributeOp(args); return true;
                 case "save_assembly":       result = HandleSaveAssembly(args); return true;
                 default: result = null; return false;
             }
@@ -422,44 +411,44 @@ namespace BDSM.Server
                 GetRequiredArg<string>(args, "visibility"));
         }
 
-        private object HandleAddCustomAttribute(Dictionary<string, object> args)
+        private object HandleCustomAttributeOp(Dictionary<string, object> args)
         {
-            List<object> ctorArgs = null;
-            var rawCtorArgs = GetOptionalArg<object>(args, "constructor_args");
-            if (rawCtorArgs is System.Collections.IList list)
+            var op = GetRequiredArg<string>(args, "op");
+            var assemblyPath = GetRequiredArg<string>(args, "assembly_path");
+            var fullTypeName = GetRequiredArg<string>(args, "full_type_name");
+            var memberName = GetRequiredArg<string>(args, "member_name");
+            var memberType = GetRequiredArg<string>(args, "member_type");
+            var attributeTypeName = GetRequiredArg<string>(args, "attribute_type_name");
+
+            switch (op)
             {
-                ctorArgs = new List<object>();
-                foreach (var item in list)
-                    ctorArgs.Add(item);
+                case "add":
+                {
+                    List<object> ctorArgs = null;
+                    var rawCtorArgs = GetOptionalArg<object>(args, "constructor_args");
+                    if (rawCtorArgs is System.Collections.IList list)
+                    {
+                        ctorArgs = new List<object>();
+                        foreach (var item in list)
+                            ctorArgs.Add(item);
+                    }
+
+                    Dictionary<string, object> namedArgs = null;
+                    var rawNamedArgs = GetOptionalArg<object>(args, "named_args");
+                    if (rawNamedArgs is System.Collections.IDictionary dict)
+                    {
+                        namedArgs = new Dictionary<string, object>();
+                        foreach (System.Collections.DictionaryEntry kvp in dict)
+                            namedArgs[kvp.Key.ToString()] = kvp.Value;
+                    }
+
+                    return _editor.AddCustomAttribute(assemblyPath, fullTypeName, memberName, memberType, attributeTypeName, ctorArgs, namedArgs);
+                }
+                case "remove":
+                    return _editor.RemoveCustomAttribute(assemblyPath, fullTypeName, memberName, memberType, attributeTypeName);
+                default:
+                    throw new UserException("Invalid op '" + op + "'. Must be one of: add, remove.");
             }
-
-            Dictionary<string, object> namedArgs = null;
-            var rawNamedArgs = GetOptionalArg<object>(args, "named_args");
-            if (rawNamedArgs is System.Collections.IDictionary dict)
-            {
-                namedArgs = new Dictionary<string, object>();
-                foreach (System.Collections.DictionaryEntry kvp in dict)
-                    namedArgs[kvp.Key.ToString()] = kvp.Value;
-            }
-
-            return _editor.AddCustomAttribute(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "member_name"),
-                GetRequiredArg<string>(args, "member_type"),
-                GetRequiredArg<string>(args, "attribute_type_name"),
-                ctorArgs,
-                namedArgs);
-        }
-
-        private object HandleRemoveCustomAttribute(Dictionary<string, object> args)
-        {
-            return _editor.RemoveCustomAttribute(
-                GetRequiredArg<string>(args, "assembly_path"),
-                GetRequiredArg<string>(args, "full_type_name"),
-                GetRequiredArg<string>(args, "member_name"),
-                GetRequiredArg<string>(args, "member_type"),
-                GetOptionalArg<string>(args, "attribute_type_name"));
         }
 
         private object HandleSaveAssembly(Dictionary<string, object> args)
