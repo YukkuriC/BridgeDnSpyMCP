@@ -31,6 +31,9 @@ namespace BDSM.Server
         private readonly Action _onShutdown;
         private readonly List<ToolDispatcher> _dispatchers = new List<ToolDispatcher>();
 
+        /// <summary>通知标志：工具列表需要刷新，在发送响应后通知客户端重新拉取</summary>
+        private bool _toolsNeedRefresh;
+
         /// <summary>工具分发委托：各模块注册自己的匹配+执行逻辑</summary>
         private delegate bool ToolDispatcher(string toolName, Dictionary<string, object> args, out object result);
 
@@ -76,6 +79,20 @@ namespace BDSM.Server
 
         /// <summary>是否处于 setup 模式（自检未通过）</summary>
         public bool IsSetupMode => _isSetupMode;
+
+        /// <summary>标记工具列表已变更，通知客户端重新拉取。</summary>
+        internal void NotifyToolsChanged() => _toolsNeedRefresh = true;
+
+        /// <summary>检查并消费待发送的 tools_changed 通知标记。</summary>
+        internal bool ConsumePendingToolsChanged()
+        {
+            if (_toolsNeedRefresh)
+            {
+                _toolsNeedRefresh = false;
+                return true;
+            }
+            return false;
+        }
 
         /// <summary>返回所有已注册的工具定义</summary>
         public ListToolsResult ListTools()

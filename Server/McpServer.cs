@@ -70,6 +70,21 @@ namespace BDSM.Server
                                 Log("FLUSH ERROR (stdout closed?): " + flushEx.Message);
                                 break; // stdout 被关闭，退出循环
                             }
+
+                            // 工具列表变更通知：发送后客户端会重新调用 tools/list 获取最新列表
+                            if (toolRegistry?.ConsumePendingToolsChanged() == true)
+                            {
+                                var notificationJson = "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/tools/list_changed\"}";
+                                Log("Sending notification: " + notificationJson);
+                                writer.WriteLine(notificationJson);
+                                try { writer.Flush(); }
+                                catch (Exception flushEx)
+                                {
+                                    Log("FLUSH ERROR (stdout closed?): " + flushEx.Message);
+                                    break;
+                                }
+                            }
+
                             Log("Sent OK, waiting for next message...");
                         }
 
@@ -191,8 +206,8 @@ namespace BDSM.Server
                         ProtocolVersion = "2025-11-25",
                         Capabilities = new ServerCapabilities
                         {
-                            Tools = new ToolsCapability()
-                        },
+                            Tools = new ToolsCapability { ListChanged = true }
+                    },
                         ServerInfo = serverInfo
                     }
                 };
@@ -207,7 +222,7 @@ namespace BDSM.Server
                     ProtocolVersion = "2025-11-25",
                     Capabilities = new ServerCapabilities
                     {
-                        Tools = new ToolsCapability()
+                        Tools = new ToolsCapability { ListChanged = true }
                     },
                     ServerInfo = serverInfo
                 }

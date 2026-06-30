@@ -54,20 +54,24 @@ namespace BDSM.Server
 
         private object HandleLoadAssembly(Dictionary<string, object> args)
         {
-            return _assemblyLoader.LoadAssembly(GetRequiredArg<string>(args, "path"));
+            var result = _assemblyLoader.LoadAssembly(GetRequiredArg<string>(args, "path"));
+            NotifyToolsChanged();
+            return result;
         }
 
         private object HandleUnloadAssembly(Dictionary<string, object> args)
         {
             var path = GetRequiredArg<string>(args, "path");
             var removed = _assemblyLoader.UnloadAssembly(path);
+            NotifyToolsChanged();
             return new { success = removed, message = removed ? "Assembly unloaded." : "Assembly not found in loaded list." };
         }
 
         private object HandleClearAllAssemblies()
         {
             var count = _assemblyLoader.ClearAllAssemblies();
-            return new { cleared = count, message = string.Format("{0} assembly(ies) cleared.", count) };
+            NotifyToolsChanged();
+            return new { cleared = count, message = string.Format("{0} assembly(es) cleared.", count) };
         }
     }
 }
