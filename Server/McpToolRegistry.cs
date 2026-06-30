@@ -53,7 +53,6 @@ namespace BDSM.Server
             _onShutdown = onShutdown;
             _jsonSettings = new JsonSerializerSettings
             {
-                Formatting = Formatting.Indented,
                 ContractResolver = new CamelCasePropertyNamesContractResolver(),
                 NullValueHandling = NullValueHandling.Ignore
             };
@@ -70,7 +69,6 @@ namespace BDSM.Server
             _isSetupMode = true;
             _jsonSettings = new JsonSerializerSettings
             {
-                Formatting = Formatting.Indented,
                 ContractResolver = new CamelCasePropertyNamesContractResolver(),
                 NullValueHandling = NullValueHandling.Ignore
             };
