@@ -14,8 +14,12 @@ namespace BDSM.Server
     /// <summary>
     /// MCP 工具注册表。
     /// 支持两种模式：
-    /// - 正常模式：暴露全部分析/反编译工具（需要服务实例）。
+    /// - 正常模式：按渐进披露规则暴露工具（基础管理工具始终可见，分析/反编译/编辑工具需有已加载程序集）。
     /// - Setup 模式：仅暴露 configure_dnspy_path 工具（无服务依赖）。
+    ///
+    /// 渐进披露层级：
+    ///   层级0（始终可见）：load_assembly, list_assemblies, unload_assembly, clear_all_assemblies, close_self
+    ///   层级1（需 loaded assemblies）：类型查询、成员浏览、反编译、IL 编辑、引用查找、路径查询
     ///
     ///   Modules/McpToolRegistry.*.cs            -- 按功能模块拆分的 partial class
     /// </summary>
@@ -105,15 +109,23 @@ namespace BDSM.Server
             }
 
             var allTools = new List<Tool>();
+
+            // 层级0 — 始终可见：基础管理工具，无需已加载程序集
             RegisterAssemblyTools(allTools);
-            RegisterReferenceTools(allTools);
-            RegisterTypeQueryTools(allTools);
-            RegisterMemberTools(allTools);
-            RegisterMethodDetailTools(allTools);
-            RegisterDecompilationTools(allTools);
-            RegisterEditorTools(allTools);
             RegisterServerTools(allTools);
-            RegisterPathQueryTools(allTools);
+
+            // 层级1 — 仅在有已加载程序集时暴露：分析/反编译/编辑工具
+            if (_assemblyLoader.HasAssemblies)
+            {
+                RegisterReferenceTools(allTools);
+                RegisterTypeQueryTools(allTools);
+                RegisterMemberTools(allTools);
+                RegisterMethodDetailTools(allTools);
+                RegisterDecompilationTools(allTools);
+                RegisterEditorTools(allTools);
+                RegisterPathQueryTools(allTools);
+            }
+
             return new ListToolsResult { Tools = allTools };
         }
 

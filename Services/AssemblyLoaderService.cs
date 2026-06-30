@@ -20,6 +20,9 @@ namespace BDSM.Services
         private readonly ConcurrentDictionary<string, ModuleDefMD> _assemblies =
             new ConcurrentDictionary<string, ModuleDefMD>(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>是否有已加载的程序集</summary>
+        public bool HasAssemblies => _assemblies.Count > 0;
+
         /// <summary>
         /// 加载程序集并返回唯一标识符（使用路径作为 key）。
         /// 若该路径已加载则直接返回已有实例。
