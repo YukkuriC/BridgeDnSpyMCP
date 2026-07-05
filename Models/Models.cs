@@ -179,4 +179,14 @@ namespace BDSM.Models
         public object Target { get; set; }              // 对应的数据模型
         public string ResolvedAssemblyPath { get; set; }
     }
+
+    /// <summary>程序集引用信息（get_assembly_dependencies 返回值）</summary>
+    public class AssemblyRefInfo
+    {
+        public string Name { get; set; }
+        public string Version { get; set; }
+        public string Culture { get; set; }
+        public string PublicKeyToken { get; set; }
+        public string Token { get; set; }
+    }
 }

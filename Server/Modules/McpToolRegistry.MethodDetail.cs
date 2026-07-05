@@ -13,24 +13,24 @@ namespace BDSM.Server
         internal void RegisterMethodDetailTools(List<Tool> tools)
         {
             tools.Add(MakeTool("get_method_info",
-                "获取单个方法的完整签名和元数据信息。",
+                "获取单个方法的完整签名和元数据信息。当不传入 assembly_path 时自动在所有已加载程序集中查找。",
                 new Dictionary<string, PropertySchema>
                 {
-                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"assembly_path", new PropertySchema{ Type="string", Description="可选，已加载的程序集路径。不传入时自动跨程序集查找"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="所属类型的全限定名"}},
                     {"method_name", new PropertySchema{ Type="string", Description="方法名"}}
                 },
-                new List<string> {"assembly_path", "full_type_name", "method_name"}));
+                new List<string> {"full_type_name", "method_name"}));
 
             tools.Add(MakeTool("get_method_il",
-                "获取方法的 IL 指令列表（偏移量、操作码、操作数）。",
+                "获取方法的 IL 指令列表（偏移量、操作码、操作数）。当不传入 assembly_path 时自动在所有已加载程序集中查找。",
                 new Dictionary<string, PropertySchema>
                 {
-                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"assembly_path", new PropertySchema{ Type="string", Description="可选，已加载的程序集路径。不传入时自动跨程序集查找"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="所属类型的全限定名"}},
                     {"method_name", new PropertySchema{ Type="string", Description="方法名"}}
                 },
-                new List<string> {"assembly_path", "full_type_name", "method_name"}));
+                new List<string> {"full_type_name", "method_name"}));
             _dispatchers.Add(DispatchMethodDetail);
         }
 
@@ -47,7 +47,7 @@ namespace BDSM.Server
         private object HandleGetMethodInfo(Dictionary<string, object> args)
         {
             var info = _metadataBrowser.GetMethodInfo(
-                GetRequiredArg<string>(args, "assembly_path"),
+                GetOptionalArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"),
                 GetRequiredArg<string>(args, "method_name"));
             if (info == null) throw new UserException("Method not found.");
@@ -57,7 +57,7 @@ namespace BDSM.Server
         private object HandleGetMethodIL(Dictionary<string, object> args)
         {
             var il = _metadataBrowser.GetMethodIL(
-                GetRequiredArg<string>(args, "assembly_path"),
+                GetOptionalArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"),
                 GetRequiredArg<string>(args, "method_name"));
             if (il == null) throw new UserException("Method has no body or not found.");

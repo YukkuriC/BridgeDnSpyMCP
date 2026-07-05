@@ -79,13 +79,11 @@ namespace BDSM.Services
         }
 
         /// <summary>
-        /// 获取类型的详细信息。
+        /// 获取类型的详细信息。支持跨程序集查找：assemblyPath 为 null 或空时自动在所有已加载程序集中查找。
         /// </summary>
         public TypeInfo GetTypeInfo(string assemblyPath, string fullTypeName)
         {
-            var module = _loader.GetModule(assemblyPath);
-            var type = AssemblyLoaderService.FindTypeByName(module, fullTypeName);
-            if (type == null) return null;
+            var type = _loader.RequireType(assemblyPath, fullTypeName);
             return ToTypeInfo(type);
         }
 

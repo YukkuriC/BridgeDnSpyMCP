@@ -12,14 +12,14 @@ namespace BDSM.Server
         internal void RegisterMemberTools(List<Tool> tools)
         {
             tools.Add(MakeTool("list_members",
-                "列出指定类型的成员。通过 op 参数指定成员类型：methods（方法）、fields（字段）、properties（属性）、events（事件）。",
+                "列出指定类型的成员。通过 op 参数指定成员类型：methods（方法）、fields（字段）、properties（属性）、events（事件）。当不传入 assembly_path 时自动在所有已加载程序集中查找。",
                 new Dictionary<string, PropertySchema>
                 {
-                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"assembly_path", new PropertySchema{ Type="string", Description="可选，已加载的程序集路径。不传入时自动跨程序集查找"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}},
                     {"op", new PropertySchema{ Type="string", Description="成员类型: methods / fields / properties / events"}}
                 },
-                new List<string> {"assembly_path", "full_type_name", "op"}));
+                new List<string> {"full_type_name", "op"}));
             _dispatchers.Add(DispatchMembers);
         }
 
@@ -37,7 +37,7 @@ namespace BDSM.Server
         private object HandleListMembers(Dictionary<string, object> args)
         {
             var op = GetRequiredArg<string>(args, "op");
-            var assemblyPath = GetRequiredArg<string>(args, "assembly_path");
+            var assemblyPath = GetOptionalArg<string>(args, "assembly_path");
             var fullTypeName = GetRequiredArg<string>(args, "full_type_name");
 
             switch (op)

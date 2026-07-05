@@ -12,23 +12,23 @@ namespace BDSM.Server
         internal void RegisterDecompilationTools(List<Tool> tools)
         {
             tools.Add(MakeTool("decompile_type",
-                "将指定类型反编译为 C# 源码文本。输出接近原始源码级别的 C# 代码。",
+                "将指定类型反编译为 C# 源码文本。输出接近原始源码级别的 C# 代码。当不传入 assembly_path 时自动在所有已加载程序集中查找。",
                 new Dictionary<string, PropertySchema>
                 {
-                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"assembly_path", new PropertySchema{ Type="string", Description="可选，已加载的程序集路径。不传入时自动跨程序集查找"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="要反编译的类型的全限定名"}}
                 },
-                new List<string> {"assembly_path", "full_type_name"}));
+                new List<string> {"full_type_name"}));
 
             tools.Add(MakeTool("decompile_method",
-                "将单个方法反编译为 C# 源码文本。",
+                "将单个方法反编译为 C# 源码文本。当不传入 assembly_path 时自动在所有已加载程序集中查找。",
                 new Dictionary<string, PropertySchema>
                 {
-                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"assembly_path", new PropertySchema{ Type="string", Description="可选，已加载的程序集路径。不传入时自动跨程序集查找"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="所属类型的全限定名"}},
                     {"method_name", new PropertySchema{ Type="string", Description="要反编译的方法名"}}
                 },
-                new List<string> {"assembly_path", "full_type_name", "method_name"}));
+                new List<string> {"full_type_name", "method_name"}));
             _dispatchers.Add(DispatchDecompilation);
 
             tools.Add(MakeTool("decompile_assembly",
@@ -41,14 +41,14 @@ namespace BDSM.Server
                 new List<string> {"assembly_path"}));
 
             tools.Add(MakeTool("decompile_to_il",
-                "将指定方法输出为 ILASM 格式的中间语言文本（含 .method 声明、.maxstack、指令列表）。",
+                "将指定方法输出为 ILASM 格式的中间语言文本（含 .method 声明、.maxstack、指令列表）。当不传入 assembly_path 时自动在所有已加载程序集中查找。",
                 new Dictionary<string, PropertySchema>
                 {
-                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"assembly_path", new PropertySchema{ Type="string", Description="可选，已加载的程序集路径。不传入时自动跨程序集查找"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="所属类型的全限定名"}},
                     {"method_name", new PropertySchema{ Type="string", Description="要输出的方法名"}}
                 },
-                new List<string> {"assembly_path", "full_type_name", "method_name"}));
+                new List<string> {"full_type_name", "method_name"}));
         }
 
         private bool DispatchDecompilation(string toolName, Dictionary<string, object> args, out object result)
@@ -66,14 +66,14 @@ namespace BDSM.Server
         private object HandleDecompileType(Dictionary<string, object> args)
         {
             return _decompilation.DecompileType(
-                GetRequiredArg<string>(args, "assembly_path"),
+                GetOptionalArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"));
         }
 
         private object HandleDecompileMethod(Dictionary<string, object> args)
         {
             return _decompilation.DecompileMethod(
-                GetRequiredArg<string>(args, "assembly_path"),
+                GetOptionalArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"),
                 GetRequiredArg<string>(args, "method_name"));
         }
@@ -88,7 +88,7 @@ namespace BDSM.Server
         private object HandleDecompileToIL(Dictionary<string, object> args)
         {
             return _decompilation.DecompileMethodToIL(
-                GetRequiredArg<string>(args, "assembly_path"),
+                GetOptionalArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"),
                 GetRequiredArg<string>(args, "method_name"));
         }

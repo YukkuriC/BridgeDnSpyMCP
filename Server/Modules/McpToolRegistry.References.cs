@@ -12,14 +12,14 @@ namespace BDSM.Server
         internal void RegisterReferenceTools(List<Tool> tools)
         {
             tools.Add(MakeTool("find_references",
-                "查找某个成员（方法/字段/属性/事件）在程序集中的所有引用位置。返回包含类型、方法、IL偏移量等信息的列表。",
+                "查找某个成员（方法/字段/属性/事件）在程序集中的所有引用位置。返回包含类型、方法、IL偏移量等信息的列表。当不传入 assembly_path 时自动在所有已加载程序集中查找。",
                 new Dictionary<string, PropertySchema>
                 {
-                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"assembly_path", new PropertySchema{ Type="string", Description="可选，已加载的程序集路径。不传入时自动跨程序集查找"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="成员所属类型的全限定名"}},
                     {"member_name", new PropertySchema{ Type="string", Description="要查找的成员名称（方法名、字段名、属性名或事件名）"}}
                 },
-                new List<string> {"assembly_path", "full_type_name", "member_name"}));
+                new List<string> {"full_type_name", "member_name"}));
 
             tools.Add(MakeTool("find_all_string_refs",
                 "查找程序集中包含指定字符串的 ldstr 指令位置。用于定位硬编码字符串的使用处。",
@@ -46,7 +46,7 @@ namespace BDSM.Server
         private object HandleFindReferences(Dictionary<string, object> args)
         {
             return _metadataBrowser.FindReferences(
-                GetRequiredArg<string>(args, "assembly_path"),
+                GetOptionalArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"),
                 GetRequiredArg<string>(args, "member_name"));
         }

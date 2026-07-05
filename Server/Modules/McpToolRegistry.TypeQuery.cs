@@ -39,13 +39,13 @@ namespace BDSM.Server
                 new List<string> {"assembly_path", "query"}));
 
             tools.Add(MakeTool("get_type_info",
-                "获取指定类型的详细信息：基类、接口、成员统计、修饰符等。",
+                "获取指定类型的详细信息：基类、接口、成员统计、修饰符等。当不传入 assembly_path 时自动在所有已加载程序集中查找。",
                 new Dictionary<string, PropertySchema>
                 {
-                    {"assembly_path", new PropertySchema{ Type="string", Description="已加载的程序集路径"}},
+                    {"assembly_path", new PropertySchema{ Type="string", Description="可选，已加载的程序集路径。不传入时自动跨程序集查找"}},
                     {"full_type_name", new PropertySchema{ Type="string", Description="类型的全限定名"}}
                 },
-                new List<string> {"assembly_path", "full_type_name"}));
+                new List<string> {"full_type_name"}));
             _dispatchers.Add(DispatchTypeQuery);
         }
 
@@ -83,7 +83,7 @@ namespace BDSM.Server
         private object HandleGetTypeInfo(Dictionary<string, object> args)
         {
             var info = _metadataBrowser.GetTypeInfo(
-                GetRequiredArg<string>(args, "assembly_path"),
+                GetOptionalArg<string>(args, "assembly_path"),
                 GetRequiredArg<string>(args, "full_type_name"));
             if (info == null) throw new UserException("Type not found.");
             return info;
