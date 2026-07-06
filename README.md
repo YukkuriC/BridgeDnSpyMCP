@@ -10,10 +10,24 @@
 
 | 工具名 | 功能 | 参数 |
 |--------|------|------|
-| `load_assembly` | 加载 .dll/.exe/.netmodule 程序集到内存 | `path` |
-| `list_assemblies` | 列出当前已加载的所有程序集信息 | 无 |
+| `load_assembly` | 加载 .dll/.exe/.netmodule 程序集到内存，自动递归加载所有 AssemblyRef 依赖 | `path` |
+| `list_assemblies` | 列出当前已加载的所有程序集信息（包括自动加载的依赖） | 无 |
 | `unload_assembly` | 移除单个已加载的程序集，释放资源 | `path` |
 | `clear_all_assemblies` | 清空所有已加载的程序集，释放全部资源 | 无 |
+| `get_assembly_dependencies` | 获取程序集的外部依赖清单（AssemblyRef 列表），包含名称、版本、Culture、Token | `assembly_path` |
+
+### 依赖解析与探测路径管理
+
+| 工具名 | 功能 | 参数 |
+|--------|------|------|
+| `list_probe_paths` | 列出用户手动添加的探测路径（用于依赖程序集查找） | 无 |
+| `add_probe_path` | 添加探测路径到 AssemblyResolver 的优先搜索列表 | `path` |
+| `remove_probe_path` | 从 AssemblyResolver 的优先搜索列表移除探测路径 | `path` |
+
+> **依赖自动加载机制**：加载程序集时会自动：
+> - 递归加载所有 AssemblyRef 依赖（通过 dnlib AssemblyResolver）
+> - 添加模块所在目录到搜索路径
+> - 解析 .config 文件中的 `<probing privatePath="..." />` 配置
 
 ### 引用查找
 
@@ -29,24 +43,24 @@
 | `list_types` | 列出已加载程序集中的所有顶层类型，支持按命名空间过滤 | `assembly_path`, `namespace_filter` (可选) |
 | `list_namespaces` | 列出已加载程序集中的所有命名空间及其包含的类型数量 | `assembly_path` |
 | `find_type` | 按名称或全限定名搜索类型，支持模糊匹配 | `assembly_path`, `query` |
-| `get_type_info` | 获取类型的详细信息：基类、接口、成员统计、修饰符等 | `assembly_path`, `full_type_name` |
+| `get_type_info` | 获取类型的详细信息：基类、接口、成员统计、修饰符等。不传 `assembly_path` 时跨所有已加载程序集查找 | `full_type_name`, `assembly_path` (可选) |
 
 ### 成员枚举与查询
 
 | 工具名 | 功能 | 参数 |
 |--------|------|------|
-| `list_members` | 列出指定类型的成员。通过 `op` 参数指定成员类型：methods（方法）、fields（字段）、properties（属性）、events（事件） | `assembly_path`, `full_type_name`, `op` |
-| `get_method_info` | 获取单个方法的完整签名和元数据信息 | `assembly_path`, `full_type_name`, `method_name` |
-| `get_method_il` | 获取方法的 IL 指令列表（偏移量、操作码、操作数） | `assembly_path`, `full_type_name`, `method_name` |
+| `list_members` | 列出指定类型的成员。通过 `op` 参数指定成员类型：methods（方法）、fields（字段）、properties（属性）、events（事件） | `full_type_name`, `op`, `assembly_path` (可选) |
+| `get_method_info` | 获取单个方法的完整签名和元数据信息。不传 `assembly_path` 时跨所有已加载程序集查找 | `full_type_name`, `method_name`, `assembly_path` (可选) |
+| `get_method_il` | 获取方法的 IL 指令列表（偏移量、操作码、操作数）。不传 `assembly_path` 时跨所有已加载程序集查找 | `full_type_name`, `method_name`, `assembly_path` (可选) |
 
 ### 反编译输出
 
 | 工具名 | 功能 | 输出格式 |
 |--------|------|----------|
-| `decompile_type` | 将指定类型反编译为 C# 源码文本 | C# |
-| `decompile_method` | 将单个方法反编译为 C# 源码 | C# |
+| `decompile_type` | 将指定类型反编译为 C# 源码文本。不传 `assembly_path` 时跨所有已加载程序集查找 | C# |
+| `decompile_method` | 将单个方法反编译为 C# 源码。不传 `assembly_path` 时跨所有已加载程序集查找 | C# |
 | `decompile_assembly` | 反编译整个程序集中指定命名空间下的所有类型。结果以 JSON 对象返回（key=类型全名, value=C#代码） | C#（多类型合并） |
-| `decompile_to_il` | 将指定方法输出为 ILASM 格式的中间语言文本（含 .method 声明、.maxstack、指令列表） | ILASM |
+| `decompile_to_il` | 将指定方法输出为 ILASM 格式的中间语言文本（含 .method 声明、.maxstack、指令列表）。不传 `assembly_path` 时跨所有已加载程序集查找 | ILASM |
 
 ### 程序集编辑
 
