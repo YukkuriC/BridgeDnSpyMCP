@@ -420,10 +420,10 @@ namespace BDSM.Services
         public object ChangeTypeVisibility(string assemblyPath, string fullTypeName, string visibility)
         {
             var type = _loader.RequireType(assemblyPath, fullTypeName);
-            var oldVis = GetTypeVisibilityName(type.Attributes);
-            var newAttr = ApplyTypeVisibility(type.Attributes, visibility, type.IsNested);
+            var oldVis = VisibilityHelper.GetTypeVisibility(type.Attributes);
+            var newAttr = VisibilityHelper.ApplyTypeVisibility(type.Attributes, visibility, type.IsNested);
             type.Attributes = newAttr;
-            var newVis = GetTypeVisibilityName(newAttr);
+            var newVis = VisibilityHelper.GetTypeVisibility(newAttr);
             return new { success = true, message = string.Format("Type visibility changed: '{0}' -> '{1}' ({2})", oldVis, newVis, fullTypeName) };
         }
 
@@ -434,10 +434,10 @@ namespace BDSM.Services
         public object ChangeMethodVisibility(string assemblyPath, string fullTypeName, string methodName, string visibility)
         {
             var method = _loader.RequireMethod(assemblyPath, fullTypeName, methodName);
-            var oldVis = GetMethodVisibilityName(method.Attributes);
-            var newAttr = ApplyMethodVisibility(method.Attributes, visibility);
+            var oldVis = VisibilityHelper.GetMethodVisibility(method.Attributes);
+            var newAttr = VisibilityHelper.ApplyMethodVisibility(method.Attributes, visibility);
             method.Attributes = newAttr;
-            var newVis = GetMethodVisibilityName(newAttr);
+            var newVis = VisibilityHelper.GetMethodVisibility(newAttr);
             return new { success = true, message = string.Format("Method visibility changed: '{0}' -> '{1}' ({2}.{3})", oldVis, newVis, fullTypeName, methodName) };
         }
 
@@ -741,97 +741,6 @@ namespace BDSM.Services
             var converted = name.Replace('.', '_');
             // 首字母大写，其余保持原样（dnlib 字段名是 PascalCase）
             return char.ToUpper(converted[0]) + converted.Substring(1);
-        }
-
-        // ---- 可见性辅助方法 ----
-
-        private const TypeAttributes TypeVisibilityMask = (TypeAttributes)0x00000007;
-        private const MethodAttributes MethodVisibilityMask = (MethodAttributes)0x00000007;
-
-        private static string GetTypeVisibilityName(TypeAttributes attr)
-        {
-            var vis = attr & TypeVisibilityMask;
-            if ((attr & TypeAttributes.VisibilityMask) != 0) // nested
-            {
-                switch (vis)
-                {
-                    case TypeAttributes.NestedPublic: return "public";
-                    case TypeAttributes.NestedPrivate: return "private";
-                    case TypeAttributes.NestedFamily: return "protected";
-                    case TypeAttributes.NestedAssembly: return "internal";
-                    case TypeAttributes.NestedFamANDAssem: return "private_protected";
-                    case TypeAttributes.NestedFamORAssem: return "protected_internal";
-                }
-            }
-            else
-            {
-                switch (vis)
-                {
-                    case TypeAttributes.Public: return "public";
-                    default: return "internal";
-                }
-            }
-            return "unknown";
-        }
-
-        private static string GetMethodVisibilityName(MethodAttributes attr)
-        {
-            switch (attr & MethodVisibilityMask)
-            {
-                case MethodAttributes.Private: return "private";
-                case MethodAttributes.FamANDAssem: return "private_protected";
-                case MethodAttributes.Assembly: return "internal";
-                case MethodAttributes.Family: return "protected";
-                case MethodAttributes.FamORAssem: return "protected_internal";
-                case MethodAttributes.Public: return "public";
-                default: return "private_scope";
-            }
-        }
-
-        private static TypeAttributes ApplyTypeVisibility(TypeAttributes current, string visibility, bool isNested)
-        {
-            var cleared = current & ~TypeVisibilityMask;
-            var lower = visibility.ToLowerInvariant().Replace("-", "_");
-
-            if (!isNested)
-            {
-                switch (lower)
-                {
-                    case "public": return cleared | TypeAttributes.Public;
-                    case "internal": return cleared; // NotPublic = 0
-                    default:
-                        throw new UserException(string.Format("Non-nested type only supports 'public' or 'internal'. Got: '{0}'. For nested types use: public/private/protected/internal/protected_internal/private_protected.", visibility));
-                }
-            }
-
-            switch (lower)
-            {
-                case "public": return cleared | TypeAttributes.NestedPublic;
-                case "private": return cleared | TypeAttributes.NestedPrivate;
-                case "protected": return cleared | TypeAttributes.NestedFamily;
-                case "internal": return cleared | TypeAttributes.NestedAssembly;
-                case "protected_internal": return cleared | TypeAttributes.NestedFamORAssem;
-                case "private_protected": return cleared | TypeAttributes.NestedFamANDAssem;
-                default:
-                    throw new UserException(string.Format("Unknown visibility '{0}'. Supported: public/private/protected/internal/protected_internal/private_protected.", visibility));
-            }
-        }
-
-        private static MethodAttributes ApplyMethodVisibility(MethodAttributes current, string visibility)
-        {
-            var cleared = current & ~MethodVisibilityMask;
-            var lower = visibility.ToLowerInvariant().Replace("-", "_");
-            switch (lower)
-            {
-                case "public": return cleared | MethodAttributes.Public;
-                case "private": return cleared | MethodAttributes.Private;
-                case "protected": return cleared | MethodAttributes.Family;
-                case "internal": return cleared | MethodAttributes.Assembly;
-                case "protected_internal": return cleared | MethodAttributes.FamORAssem;
-                case "private_protected": return cleared | MethodAttributes.FamANDAssem;
-                default:
-                    throw new UserException(string.Format("Unknown visibility '{0}'. Supported: public/private/protected/internal/protected_internal/private_protected.", visibility));
-            }
         }
 
         // ---- 自定义特性辅助方法 ----

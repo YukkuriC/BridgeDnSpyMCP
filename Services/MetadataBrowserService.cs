@@ -192,7 +192,7 @@ namespace BDSM.Services
                     .Cast<string>()
                     .ToList(),
                 Kind = kind,
-                Visibility = GetTypeVisibility(type.Attributes),
+                Visibility = VisibilityHelper.GetTypeVisibility(type.Attributes),
                 IsAbstract = type.IsAbstract,
                 IsSealed = type.IsSealed,
                 IsStatic = type.IsSealed && type.IsAbstract,
@@ -223,7 +223,7 @@ namespace BDSM.Services
                     DefaultValue = p.Constant != null ? p.Constant.ToString() : null
                 }).ToList(),
                 GenericParameters = method.GenericParameters.Select(gp => gp.Name.ToString()).ToList(),
-                Visibility = GetMethodVisibility(method.Attributes),
+                Visibility = VisibilityHelper.GetMethodVisibility(method.Attributes),
                 IsStatic = method.IsStatic,
                 IsVirtual = method.IsVirtual,
                 IsAbstract = method.IsAbstract,
@@ -243,7 +243,7 @@ namespace BDSM.Services
                 Name = field.Name,
                 FullName = field.FullName,
                 FieldType = field.FieldType.ToString(),
-                Visibility = GetFieldVisibility(field.Attributes),
+                Visibility = VisibilityHelper.GetFieldVisibility(field.Attributes),
                 IsStatic = field.IsStatic,
                 IsReadOnly = (field.Attributes & FieldAttributes.InitOnly) != 0,
                 IsLiteral = field.IsLiteral,
@@ -260,7 +260,7 @@ namespace BDSM.Services
                 PropertyType = prop.PropertySig != null ? prop.PropertySig.ToString() : "unknown",
                 HasGet = prop.GetMethod != null,
                 HasSet = prop.SetMethod != null,
-                Visibility = prop.GetMethod != null ? GetMethodVisibility(prop.GetMethod.Attributes) : "private",
+                Visibility = prop.GetMethod != null ? VisibilityHelper.GetMethodVisibility(prop.GetMethod.Attributes) : "private",
                 MetadataToken = (int)prop.MDToken.Raw
             };
         }
@@ -271,45 +271,9 @@ namespace BDSM.Services
             {
                 Name = evt.Name,
                 EventType = evt.EventType.ToString(),
-                Visibility = evt.AddMethod != null ? GetMethodVisibility(evt.AddMethod.Attributes) : "private",
+                Visibility = evt.AddMethod != null ? VisibilityHelper.GetMethodVisibility(evt.AddMethod.Attributes) : "private",
                 MetadataToken = (int)evt.MDToken.Raw
             };
-        }
-
-        internal static string GetTypeVisibility(TypeAttributes attrs)
-        {
-            var mask = attrs & TypeAttributes.VisibilityMask;
-            if (mask == TypeAttributes.Public || mask == TypeAttributes.NestedPublic) return "public";
-            if (mask == TypeAttributes.NotPublic || mask == TypeAttributes.NestedAssembly) return "internal";
-            if (mask == TypeAttributes.NestedPrivate) return "private";
-            if (mask == TypeAttributes.NestedFamily) return "protected";
-            if (mask == TypeAttributes.NestedFamORAssem) return "protected internal";
-            if (mask == TypeAttributes.NestedFamANDAssem) return "private protected";
-            return "unknown";
-        }
-
-        internal static string GetMethodVisibility(MethodAttributes attrs)
-        {
-            var mask = attrs & MethodAttributes.MemberAccessMask;
-            if (mask == MethodAttributes.Public) return "public";
-            if (mask == MethodAttributes.Private) return "private";
-            if (mask == MethodAttributes.Family) return "protected";
-            if (mask == MethodAttributes.Assembly) return "internal";
-            if (mask == MethodAttributes.FamORAssem) return "protected internal";
-            if (mask == MethodAttributes.FamANDAssem) return "private protected";
-            return "unknown";
-        }
-
-        internal static string GetFieldVisibility(FieldAttributes attrs)
-        {
-            var mask = attrs & FieldAttributes.FieldAccessMask;
-            if (mask == FieldAttributes.Public) return "public";
-            if (mask == FieldAttributes.Private) return "private";
-            if (mask == FieldAttributes.Family) return "protected";
-            if (mask == FieldAttributes.Assembly) return "internal";
-            if (mask == FieldAttributes.FamORAssem) return "protected internal";
-            if (mask == FieldAttributes.FamANDAssem) return "private protected";
-            return "unknown";
         }
     }
 
