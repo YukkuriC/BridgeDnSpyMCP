@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BDSM;
 using BDSM.Services;
 using BDSM.Server.Protocol;
@@ -301,14 +302,9 @@ namespace BDSM.Server
             var offset = GetRequiredArg<int>(args, "offset");
             var instruction = GetOptionalArg<string>(args, "instruction");
 
-            List<string> instructionList = null;
             var rawArr = GetOptionalArg<object>(args, "instructions");
-            if (rawArr is System.Collections.IList list && list.Count > 0)
-            {
-                instructionList = new List<string>();
-                foreach (var item in list)
-                    instructionList.Add(item.ToString());
-            }
+            List<string> instructionList = rawArr is List<object> list && list.Count > 0
+                ? list.Select(x => x.ToString()).ToList() : null;
 
             return _editor.InsertILInstruction(assemblyPath, fullTypeName, methodName, offset, instruction, instructionList);
         }
@@ -326,14 +322,9 @@ namespace BDSM.Server
             if (args.ContainsKey("end_offset") && args["end_offset"] != null)
                 endOffset = ConvertValue<int>(args["end_offset"]);
 
-            List<int> offsetList = null;
             var rawArr = GetOptionalArg<object>(args, "offsets");
-            if (rawArr is System.Collections.IList list && list.Count > 0)
-            {
-                offsetList = new List<int>();
-                foreach (var item in list)
-                    offsetList.Add(ConvertValue<int>(item));
-            }
+            List<int> offsetList = rawArr is List<object> list && list.Count > 0
+                ? list.Select(ConvertValue<int>).ToList() : null;
 
             if (!hasOffset && endOffset < 0 && (offsetList == null || offsetList.Count == 0))
                 throw new UserException("At least one of 'offset', 'end_offset' or 'offsets' must be provided.");
@@ -374,23 +365,11 @@ namespace BDSM.Server
                     if (string.IsNullOrEmpty(attributeTypeName))
                         throw new UserException("'attribute_type_name' is required for add operation.");
 
-                    List<object> ctorArgs = null;
                     var rawCtorArgs = GetOptionalArg<object>(args, "constructor_args");
-                    if (rawCtorArgs is System.Collections.IList list)
-                    {
-                        ctorArgs = new List<object>();
-                        foreach (var item in list)
-                            ctorArgs.Add(item);
-                    }
+                    List<object> ctorArgs = rawCtorArgs as List<object>;
 
-                    Dictionary<string, object> namedArgs = null;
                     var rawNamedArgs = GetOptionalArg<object>(args, "named_args");
-                    if (rawNamedArgs is System.Collections.IDictionary dict)
-                    {
-                        namedArgs = new Dictionary<string, object>();
-                        foreach (System.Collections.DictionaryEntry kvp in dict)
-                            namedArgs[kvp.Key.ToString()] = kvp.Value;
-                    }
+                    Dictionary<string, object> namedArgs = rawNamedArgs as Dictionary<string, object>;
 
                     return _editor.AddCustomAttribute(assemblyPath, fullTypeName, memberName, memberType, attributeTypeName, ctorArgs, namedArgs);
                 }
