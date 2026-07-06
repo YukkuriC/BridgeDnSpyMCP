@@ -155,10 +155,9 @@ namespace BDSM.Services
         /// </summary>
         public List<ReferenceInfo> FindReferences(string assemblyPath, string fullTypeName, string memberName)
         {
-            var module = _loader.GetModule(assemblyPath)
-                       ?? throw new UserException("Assembly not loaded: " + assemblyPath);
-            var targetType = ResolveType(module, fullTypeName)
-                          ?? throw new UserException("Type '" + fullTypeName + "' not found.");
+            // 支持可选 assemblyPath：跨程序集查找类型
+            var targetType = _loader.RequireType(assemblyPath, fullTypeName);
+            var module = targetType.Module as ModuleDefMD;
 
             // 解析目标成员
             var targetMember = ResolveMember(targetType, memberName);
